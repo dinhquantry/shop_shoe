@@ -15,7 +15,9 @@ namespace backend.Models
         public DateTime CreatedAt{get;set;}=DateTime.UtcNow;
         public bool IsDelete{get;set;}=false;
         public int CategoryId{get;set;}
+        public Category? Category{get;set;}
         public int BrandId{get;set;}
+        public Brand? Brand{get;set;}
         public ICollection<ProductVariant> ProductVariants{get;set;}= new List<ProductVariant>();    
 
     }

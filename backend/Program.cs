@@ -1,18 +1,15 @@
-using backend.Data;
-using Microsoft.EntityFrameworkCore;
-using backend.Profiles;
+using backend.Extensions; 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddDatabaseConfiguration(builder.Configuration);
+builder.Services.AddSwaggerConfiguration();
+builder.Services.AddCoreApplicationServices();
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-builder.Services.AddAutoMapper(cfg => { },typeof(MappingProfile));
+
+//Identity (Đăng nhập) builder.Services.AddIdentityConfiguration();
+
 var app = builder.Build();
 
-
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -20,5 +17,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseAuthorization();
+app.MapControllers(); 
 
 app.Run();

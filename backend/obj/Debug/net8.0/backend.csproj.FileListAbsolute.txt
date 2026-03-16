@@ -154,3 +154,4 @@ D:\DATN\backend\obj\Debug\net8.0\refint\backend.dll
 D:\DATN\backend\obj\Debug\net8.0\backend.pdb
 D:\DATN\backend\obj\Debug\net8.0\backend.genruntimeconfig.cache
 D:\DATN\backend\obj\Debug\net8.0\ref\backend.dll
+D:\DATN\backend\obj\Debug\net8.0\backend.sourcelink.json

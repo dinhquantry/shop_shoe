@@ -8,12 +8,14 @@ namespace backend.Profiles
     {
         public MappingProfile()
         {
-            // Map 2 chiều giữa Database Model và DTO
+            // Map category
             CreateMap<Category, CategoryDto>();
-            
-            // Map 1 chiều từ DTO vào Database Model
             CreateMap<CategoryCreateDto, Category>();
             CreateMap<CategoryUpdateDto, Category>();
+            //map product
+            CreateMap<Product, ProductDto>(); 
+            CreateMap<ProductCreateDto, Product>();
+            CreateMap<ProductUpdateDto, Product>();
         }
     }
 }
