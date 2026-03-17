@@ -6,7 +6,6 @@ builder.Services.AddSwaggerConfiguration();
 builder.Services.AddCoreApplicationServices();
 
 
-//Identity (Đăng nhập) builder.Services.AddIdentityConfiguration();
 
 var app = builder.Build();
 
@@ -15,7 +14,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
+app.UseCors("AllowNextJsApp");
 app.UseHttpsRedirection();
 app.MapControllers(); 
 
