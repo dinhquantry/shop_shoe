@@ -76,6 +76,11 @@ namespace backend.Controllers
                 return NotFound("Không tìm thấy danh mục để cập nhật.");
             }
 
+            if (await _context.Categories.AnyAsync(c => c.Slug == categoryDto.Slug && c.Id != id))
+            {
+                return BadRequest("Đường dẫn (Slug) này đã tồn tại.");
+            }
+
             // Ghi đè dữ liệu mới từ DTO vào Category hiện tại
             _mapper.Map(categoryDto, category);
 
@@ -102,9 +107,24 @@ namespace backend.Controllers
                 return NotFound();
             }
 
-            // Xóa thật khỏi DB
-            _context.Categories.Remove(category);
-            await _context.SaveChangesAsync();
+            var hasProducts = await _context.Products.AnyAsync(p => p.CategoryId == id && !p.IsDelete);
+            var hasChildren = await _context.Categories.AnyAsync(c => c.ParentId == id);
+
+            if (hasProducts || hasChildren)
+            {
+                return BadRequest("Không thể xóa danh mục đang được sử dụng.");
+            }
+
+            try
+            {
+                // Xóa thật khỏi DB khi không còn dữ liệu liên quan
+                _context.Categories.Remove(category);
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                return BadRequest("Không thể xóa danh mục vì còn dữ liệu liên quan.");
+            }
 
             return NoContent();
         }

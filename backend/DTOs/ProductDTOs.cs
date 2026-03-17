@@ -31,6 +31,6 @@ namespace backend.DTOs
     }
     public class ProductUpdateDto : ProductCreateDto
     {
-        public bool IsDeleted { get; set; } 
+        public bool IsDelete { get; set; } 
     }
 }

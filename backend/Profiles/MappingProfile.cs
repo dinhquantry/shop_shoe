@@ -13,9 +13,12 @@ namespace backend.Profiles
             CreateMap<CategoryCreateDto, Category>();
             CreateMap<CategoryUpdateDto, Category>();
             //map product
-            CreateMap<Product, ProductDto>(); 
+            CreateMap<Product, ProductDto>()
+                .ForMember(d => d.CategoryName, o => o.MapFrom(s => s.Category != null ? s.Category.Name : string.Empty))
+                .ForMember(d => d.BrandName, o => o.MapFrom(s => s.Brand != null ? s.Brand.Name : string.Empty));
             CreateMap<ProductCreateDto, Product>();
-            CreateMap<ProductUpdateDto, Product>();
+            CreateMap<ProductUpdateDto, Product>()
+                .ForMember(d => d.IsDelete, o => o.MapFrom(s => s.IsDelete));
         }
     }
 }

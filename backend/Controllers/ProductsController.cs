@@ -59,7 +59,7 @@ namespace backend.Controllers
             if (!brandExists) return BadRequest("Thương hiệu không hợp lệ.");
 
             var product = _mapper.Map<Product>(productDto);
-            
+
             _context.Products.Add(product);
             await _context.SaveChangesAsync();
 
@@ -74,7 +74,7 @@ namespace backend.Controllers
         public async Task<IActionResult> UpdateProduct(int id, ProductUpdateDto productDto)
         {
             var product = await _context.Products.FindAsync(id);
-            if (product == null || product.IsDelete) 
+            if (product == null || product.IsDelete)
             {
                 return NotFound("Không tìm thấy sản phẩm hoặc sản phẩm đã bị xóa.");
             }
@@ -107,14 +107,14 @@ namespace backend.Controllers
         public async Task<IActionResult> DeleteProduct(int id)
         {
             var product = await _context.Products.FindAsync(id);
-            
-            if (product == null || product.IsDelete) 
+
+            if (product == null || product.IsDelete)
             {
                 return NotFound("Sản phẩm không tồn tại hoặc đã bị xóa trước đó.");
             }
 
             product.IsDelete = true;
-            
+
             await _context.SaveChangesAsync();
 
             return NoContent();
