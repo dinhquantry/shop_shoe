@@ -1,21 +1,24 @@
 import axiosClient from "../lib/axiosClient";
 
-// Định nghĩa cấu trúc cục dữ liệu sẽ gửi đi (bỏ Id vì Backend tự tăng)
-interface CategoryPayload {
+export interface CategoryPayload {
   name: string;
-  slug: string;
-  isActive: boolean;
-  parentId: number | null;
+  description?: string | null;
+}
+
+export interface CategoryDto {
+  id: number;
+  name: string;
+  description?: string | null;
 }
 
 // 1. Lấy danh sách (Read)
 export const fetchCategories = () => {
-  return axiosClient.get('/categories'); 
+  return axiosClient.get<CategoryDto[]>('/categories'); 
 };
 
 // 2. Thêm mới (Create)
 export const createCategory = (data: CategoryPayload) => {
-  return axiosClient.post('/categories', data);
+  return axiosClient.post<CategoryDto>('/categories', data);
 };
 
 // 3. Cập nhật (Update)

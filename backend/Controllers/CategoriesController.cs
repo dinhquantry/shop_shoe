@@ -1,39 +1,38 @@
 using AutoMapper;
 using backend.Data;
 using backend.DTOs;
-using backend.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using backend.Models;
 namespace backend.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
     public class CategoriesController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly ShoeShopDbContext _context;
         private readonly IMapper _mapper;
 
-        public CategoriesController(AppDbContext context, IMapper mapper)
+        public CategoriesController(ShoeShopDbContext context, IMapper mapper)
         {
             _context = context;
             _mapper = mapper;
         }
 
-        // 1. LẤY DANH SÁCH TẤT CẢ DANH MỤC
         [HttpGet]
         public async Task<ActionResult<IEnumerable<CategoryDto>>> GetCategories()
         {
-            var categories = await _context.Categories.ToListAsync();
-            // Dùng AutoMapper biến danh sách Model thành DTO
+            var categories = await _context.DanhMucs
+                .OrderBy(c => c.TenDm)
+                .ToListAsync();
+
             return Ok(_mapper.Map<IEnumerable<CategoryDto>>(categories));
         }
 
-        // 2. LẤY 1 DANH MỤC THEO ID
-        // GET: api/categories/5
         [HttpGet("{id}")]
         public async Task<ActionResult<CategoryDto>> GetCategory(int id)
         {
-            var category = await _context.Categories.FindAsync(id);
+            var category = await _context.DanhMucs.FindAsync(id);
 
             if (category == null)
             {
@@ -43,45 +42,38 @@ namespace backend.Controllers
             return Ok(_mapper.Map<CategoryDto>(category));
         }
 
-        // 3. THÊM MỚI DANH MỤC
-        // POST: api/categories
         [HttpPost]
         public async Task<ActionResult<CategoryDto>> CreateCategory(CategoryCreateDto categoryDto)
         {
-            // Kiểm tra trùng Slug 
-            if (await _context.Categories.AnyAsync(c => c.Slug == categoryDto.Slug))
+            if (await _context.DanhMucs.AnyAsync(c => c.TenDm == categoryDto.Name.Trim()))
             {
-                return BadRequest("Đường dẫn (Slug) này đã tồn tại.");
+                return BadRequest("Tên danh mục này đã tồn tại.");
             }
 
-            var category = _mapper.Map<Category>(categoryDto);
+            var category = _mapper.Map<DanhMuc>(categoryDto);
 
-            _context.Categories.Add(category);
+            _context.DanhMucs.Add(category);
             await _context.SaveChangesAsync();
 
             var newCategoryDto = _mapper.Map<CategoryDto>(category);
 
-            // Trả về HTTP 201 Created và kèm theo dữ liệu vừa tạo
-            return CreatedAtAction(nameof(GetCategory), new { id = category.Id }, newCategoryDto);
+            return CreatedAtAction(nameof(GetCategory), new { id = category.MaDm }, newCategoryDto);
         }
 
-        // 4. CẬP NHẬT DANH MỤC
-        // PUT: api/categories/5
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateCategory(int id, CategoryUpdateDto categoryDto)
         {
-            var category = await _context.Categories.FindAsync(id);
+            var category = await _context.DanhMucs.FindAsync(id);
             if (category == null)
             {
                 return NotFound("Không tìm thấy danh mục để cập nhật.");
             }
 
-            if (await _context.Categories.AnyAsync(c => c.Slug == categoryDto.Slug && c.Id != id))
+            if (await _context.DanhMucs.AnyAsync(c => c.TenDm == categoryDto.Name.Trim() && c.MaDm != id))
             {
-                return BadRequest("Đường dẫn (Slug) này đã tồn tại.");
+                return BadRequest("Tên danh mục này đã tồn tại.");
             }
 
-            // Ghi đè dữ liệu mới từ DTO vào Category hiện tại
             _mapper.Map(categoryDto, category);
 
             try
@@ -96,29 +88,25 @@ namespace backend.Controllers
             return NoContent(); // HTTP 204: Cập nhật thành công, không cần trả về body
         }
 
-        // 5. XÓA DANH MỤC
-        // DELETE: api/categories/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteCategory(int id)
         {
-            var category = await _context.Categories.FindAsync(id);
+            var category = await _context.DanhMucs.FindAsync(id);
             if (category == null)
             {
                 return NotFound();
             }
 
-            var hasProducts = await _context.Products.AnyAsync(p => p.CategoryId == id && !p.IsDelete);
-            var hasChildren = await _context.Categories.AnyAsync(c => c.ParentId == id);
+            var hasProducts = await _context.SanPhams.AnyAsync(p => p.MaDm == id);
 
-            if (hasProducts || hasChildren)
+            if (hasProducts)
             {
                 return BadRequest("Không thể xóa danh mục đang được sử dụng.");
             }
 
             try
             {
-                // Xóa thật khỏi DB khi không còn dữ liệu liên quan
-                _context.Categories.Remove(category);
+                _context.DanhMucs.Remove(category);
                 await _context.SaveChangesAsync();
             }
             catch (DbUpdateException)
