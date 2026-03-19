@@ -1,9 +1,10 @@
 using AutoMapper;
 using backend.Data;
 using backend.DTOs;
+using backend.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using backend.Models;
+
 namespace backend.Controllers
 {
     [Route("api/[controller]")]
@@ -18,102 +19,62 @@ namespace backend.Controllers
             _context = context;
             _mapper = mapper;
         }
-
+        //lấy toàn bộ danh mục
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<CategoryDto>>> GetCategories()
+        public async Task<IActionResult> GetCategories()
         {
-            var categories = await _context.DanhMucs
-                .OrderBy(c => c.TenDm)
-                .ToListAsync();
-
-            return Ok(_mapper.Map<IEnumerable<CategoryDto>>(categories));
+            var danhMucDb = await _context.DanhMucs.ToListAsync();
+            var danhSachDto = _mapper.Map<List<CategoryDto>>(danhMucDb);
+            return Ok(danhSachDto);
         }
-
+        //lấy chi tiết 1 danh mục
         [HttpGet("{id}")]
-        public async Task<ActionResult<CategoryDto>> GetCategory(int id)
+        public async Task<IActionResult> GetCategory(int id)
         {
-            var category = await _context.DanhMucs.FindAsync(id);
-
-            if (category == null)
-            {
-                return NotFound("Không tìm thấy danh mục này.");
-            }
-
-            return Ok(_mapper.Map<CategoryDto>(category));
+            var cat = await _context.DanhMucs.FindAsync(id);
+            if (cat == null) return NotFound();
+            var categoryDto = _mapper.Map<CategoryDto>(cat);
+            return Ok(categoryDto);
         }
-
-        [HttpPost]
-        public async Task<ActionResult<CategoryDto>> CreateCategory(CategoryCreateDto categoryDto)
+        //sửa danh muc
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateCategory(int id, CategoryCreateDto dto)
         {
-            if (await _context.DanhMucs.AnyAsync(c => c.TenDm == categoryDto.Name.Trim()))
-            {
-                return BadRequest("Tên danh mục này đã tồn tại.");
-            }
+            var cat = await _context.DanhMucs.FindAsync(id);
+            if (cat == null) return NotFound("Không tìm thấy danh mục này!");
+            bool isDuplicate = await _context.DanhMucs.AnyAsync(c => c.TenDm == dto.TenDm && c.MaDm != id);
+            if (isDuplicate) return BadRequest("Tên danh mục đã tồn tại");
+            cat.TenDm = dto.TenDm;
+            cat.MoTa = dto.MoTa;
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+        //thêm danh mục
+        [HttpPost]
+        public async Task<IActionResult> CreateCategory(CategoryCreateDto dto)
+        {
+            //tên danh mục không được trống
+            if (string.IsNullOrWhiteSpace(dto.TenDm)) return BadRequest("tên danh mục không được để trống!");
+            bool isExists = await _context.DanhMucs.AnyAsync(a => a.TenDm == dto.TenDm.Trim());
+            if (isExists) return BadRequest("Danh mục đã tồn tại");
+            var newCategory = _mapper.Map<DanhMuc>(dto);
+            newCategory.TenDm = newCategory.TenDm.Trim();
 
-            var category = _mapper.Map<DanhMuc>(categoryDto);
-
-            _context.DanhMucs.Add(category);
+            _context.DanhMucs.Add(newCategory);
             await _context.SaveChangesAsync();
 
-            var newCategoryDto = _mapper.Map<CategoryDto>(category);
-
-            return CreatedAtAction(nameof(GetCategory), new { id = category.MaDm }, newCategoryDto);
+            var categoryReturnDto = _mapper.Map<CategoryDto>(newCategory);
+            return CreatedAtAction(nameof(GetCategory), new { id = newCategory.MaDm }, categoryReturnDto);
         }
-
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateCategory(int id, CategoryUpdateDto categoryDto)
-        {
-            var category = await _context.DanhMucs.FindAsync(id);
-            if (category == null)
-            {
-                return NotFound("Không tìm thấy danh mục để cập nhật.");
-            }
-
-            if (await _context.DanhMucs.AnyAsync(c => c.TenDm == categoryDto.Name.Trim() && c.MaDm != id))
-            {
-                return BadRequest("Tên danh mục này đã tồn tại.");
-            }
-
-            _mapper.Map(categoryDto, category);
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                return StatusCode(500, "Lỗi hệ thống khi cập nhật dữ liệu.");
-            }
-
-            return NoContent(); // HTTP 204: Cập nhật thành công, không cần trả về body
-        }
-
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteCategory(int id)
+        public async Task<IActionResult> deleteCategory(int id)
         {
-            var category = await _context.DanhMucs.FindAsync(id);
-            if (category == null)
-            {
-                return NotFound();
-            }
-
-            var hasProducts = await _context.SanPhams.AnyAsync(p => p.MaDm == id);
-
-            if (hasProducts)
-            {
-                return BadRequest("Không thể xóa danh mục đang được sử dụng.");
-            }
-
-            try
-            {
-                _context.DanhMucs.Remove(category);
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateException)
-            {
-                return BadRequest("Không thể xóa danh mục vì còn dữ liệu liên quan.");
-            }
-
+            var cat = await _context.DanhMucs.FindAsync(id);
+            if (cat == null) return NotFound("không tìm thấy danh mục này");
+            bool hasProduct = await _context.SanPhams.AnyAsync(p => p.MaDm == id);
+            if (hasProduct) return BadRequest("Danh mục còn tồn tại sản phẩm. Không thể xóa");
+            _context.DanhMucs.Remove(cat);
+            await _context.SaveChangesAsync();
             return NoContent();
         }
     }

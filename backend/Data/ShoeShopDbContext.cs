@@ -16,7 +16,7 @@ public partial class ShoeShopDbContext : DbContext
 
     public virtual DbSet<ChiTietHoaDon> ChiTietHoaDons { get; set; }
 
-    public virtual DbSet<DanhGium> DanhGia { get; set; }
+    public virtual DbSet<DanhGia> DanhGias { get; set; }
 
     public virtual DbSet<DanhMuc> DanhMucs { get; set; }
 
@@ -93,7 +93,7 @@ public partial class ShoeShopDbContext : DbContext
                 .HasConstraintName("FK__ChiTietHoa__MaHD__0880433F");
         });
 
-        modelBuilder.Entity<DanhGium>(entity =>
+        modelBuilder.Entity<DanhGia>(entity =>
         {
             entity.HasKey(e => e.MaDg).HasName("PK__DanhGia__2725866017673ADB");
 

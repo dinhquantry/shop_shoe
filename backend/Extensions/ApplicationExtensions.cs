@@ -1,5 +1,4 @@
 using backend.Profiles;
-using Microsoft.Extensions.Options;
 namespace backend.Extensions
 {
     public static class ApplicationExtensions

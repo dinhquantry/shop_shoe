@@ -9,7 +9,6 @@ namespace backend.Extensions
         {
             services.AddDbContext<ShoeShopDbContext>(options =>
                 options.UseSqlServer(config.GetConnectionString("DefaultConnection")));
-
             return services;
         }
     }

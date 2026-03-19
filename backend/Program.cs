@@ -1,11 +1,9 @@
-using backend.Extensions; 
+using backend.Extensions;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDatabaseConfiguration(builder.Configuration);
 builder.Services.AddSwaggerConfiguration();
 builder.Services.AddCoreApplicationServices();
-
-
 
 var app = builder.Build();
 
@@ -16,6 +14,7 @@ if (app.Environment.IsDevelopment())
 }
 app.UseCors("AllowNextJsApp");
 app.UseHttpsRedirection();
-app.MapControllers(); 
+app.UseStaticFiles();
+app.MapControllers();
 
 app.Run();

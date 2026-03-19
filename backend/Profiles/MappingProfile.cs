@@ -1,59 +1,36 @@
+using backend.Models;
 using AutoMapper;
 using backend.DTOs;
-using backend.Models;
-
 namespace backend.Profiles
 {
     public class MappingProfile : Profile
     {
         public MappingProfile()
         {
-            CreateMap<DanhMuc, CategoryDto>()
-                .ForMember(d => d.Id, o => o.MapFrom(s => s.MaDm))
-                .ForMember(d => d.Name, o => o.MapFrom(s => s.TenDm))
-                .ForMember(d => d.Description, o => o.MapFrom(s => s.MoTa));
+            //map danh muc
+            CreateMap<DanhMuc, CategoryDto>();
+            CreateMap<CategoryCreateDto, DanhMuc>();
 
-            CreateMap<CategoryCreateDto, DanhMuc>()
-                .ForMember(d => d.MaDm, o => o.Ignore())
-                .ForMember(d => d.TenDm, o => o.MapFrom(s => s.Name.Trim()))
-                .ForMember(d => d.MoTa, o => o.MapFrom(s => string.IsNullOrWhiteSpace(s.Description) ? null : s.Description.Trim()));
-
-            CreateMap<CategoryUpdateDto, DanhMuc>()
-                .ForMember(d => d.MaDm, o => o.Ignore())
-                .ForMember(d => d.TenDm, o => o.MapFrom(s => s.Name.Trim()))
-                .ForMember(d => d.MoTa, o => o.MapFrom(s => string.IsNullOrWhiteSpace(s.Description) ? null : s.Description.Trim()));
-
+            //map san pham
             CreateMap<SanPham, ProductDto>()
-                .ForMember(d => d.Id, o => o.MapFrom(s => s.MaSp))
-                .ForMember(d => d.Name, o => o.MapFrom(s => s.TenSp))
-                .ForMember(d => d.Description, o => o.MapFrom(s => s.MoTa))
-                .ForMember(d => d.BasePrice, o => o.MapFrom(s => s.DonGia))
-                .ForMember(d => d.SalePrice, o => o.MapFrom(s => s.GiaKhuyenMai))
-                .ForMember(d => d.CategoryId, o => o.MapFrom(s => s.MaDm))
-                .ForMember(d => d.CategoryName, o => o.MapFrom(s => s.MaDmNavigation != null ? s.MaDmNavigation.TenDm : string.Empty))
-                .ForMember(d => d.BrandId, o => o.MapFrom(s => s.MaTh))
-                .ForMember(d => d.BrandName, o => o.MapFrom(s => s.MaThNavigation != null ? s.MaThNavigation.TenTh : string.Empty))
-                .ForMember(d => d.IsActive, o => o.MapFrom(s => !s.Active.HasValue || s.Active.Value != 0));
+    .ForMember(dest => dest.TenDm, opt => opt.MapFrom(src => src.MaDmNavigation != null ? src.MaDmNavigation.TenDm : null))
+    .ForMember(dest => dest.TenTh, opt => opt.MapFrom(src => src.MaThNavigation != null ? src.MaThNavigation.TenTh : null));
+            //map biến thể
+            CreateMap<BienTheSanPham, VariantDto>()
+            .ForMember(dest => dest.TenSp, opt => opt.MapFrom(src => src.MaSpNavigation.TenSp))
+            .ForMember(dest => dest.TenSize, opt => opt.MapFrom(src => src.MaSizeNavigation.TenSize))
+            .ForMember(dest => dest.TenMau, opt => opt.MapFrom(src => src.MaMauNavigation.TenMau));
+            CreateMap<VariantCreateDto, BienTheSanPham>();
 
-            CreateMap<ProductCreateDto, SanPham>()
-                .ForMember(d => d.MaSp, o => o.Ignore())
-                .ForMember(d => d.TenSp, o => o.MapFrom(s => s.Name.Trim()))
-                .ForMember(d => d.MoTa, o => o.MapFrom(s => string.IsNullOrWhiteSpace(s.Description) ? null : s.Description.Trim()))
-                .ForMember(d => d.DonGia, o => o.MapFrom(s => s.BasePrice))
-                .ForMember(d => d.GiaKhuyenMai, o => o.MapFrom(s => s.SalePrice))
-                .ForMember(d => d.MaDm, o => o.MapFrom(s => s.CategoryId))
-                .ForMember(d => d.MaTh, o => o.MapFrom(s => s.BrandId))
-                .ForMember(d => d.Active, o => o.MapFrom(s => (byte)(s.IsActive ? 1 : 0)));
+            //Map thương hiệu
+            CreateMap<ThuongHieu, BrandDto>();
+            CreateMap<BrandCreateDto, ThuongHieu>();
 
-            CreateMap<ProductUpdateDto, SanPham>()
-                .ForMember(d => d.MaSp, o => o.Ignore())
-                .ForMember(d => d.TenSp, o => o.MapFrom(s => s.Name.Trim()))
-                .ForMember(d => d.MoTa, o => o.MapFrom(s => string.IsNullOrWhiteSpace(s.Description) ? null : s.Description.Trim()))
-                .ForMember(d => d.DonGia, o => o.MapFrom(s => s.BasePrice))
-                .ForMember(d => d.GiaKhuyenMai, o => o.MapFrom(s => s.SalePrice))
-                .ForMember(d => d.MaDm, o => o.MapFrom(s => s.CategoryId))
-                .ForMember(d => d.MaTh, o => o.MapFrom(s => s.BrandId))
-                .ForMember(d => d.Active, o => o.MapFrom(s => (byte)(s.IsActive ? 1 : 0)));
+            //size, màu sắc
+            CreateMap<Size, SizeDto>();
+            CreateMap<MauSac, ColorDto>();
+
         }
+
     }
 }

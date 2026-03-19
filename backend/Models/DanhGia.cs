@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace backend.Models;
 
-public partial class DanhGium
+public partial class DanhGia
 {
     public int MaDg { get; set; }
 
