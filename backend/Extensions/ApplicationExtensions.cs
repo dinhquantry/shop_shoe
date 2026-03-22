@@ -1,5 +1,4 @@
 using backend.Profiles;
-using Microsoft.Extensions.Options;
 namespace backend.Extensions
 {
     public static class ApplicationExtensions
@@ -8,7 +7,6 @@ namespace backend.Extensions
         {
             services.AddControllers();
             services.AddAutoMapper(cfg => { }, typeof(MappingProfile));
-            // Sau này thêm cấu hình CORS, Dependency Injection ở đây
             services.AddCors(options =>
             {
                 options.AddPolicy("AllowNextJsApp", policy =>
@@ -18,7 +16,6 @@ namespace backend.Extensions
                     .AllowAnyMethod();
                 });
             });
-
             return services;
         }
     }

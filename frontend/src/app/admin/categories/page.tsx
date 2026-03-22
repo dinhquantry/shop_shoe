@@ -3,18 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, X, Save } from "lucide-react";
 import clsx from "clsx";
-import { createCategory, deleteCategory, fetchCategories, updateCategory } from "@/src/services/api";
+import { createCategory, deleteCategory, fetchCategories, updateCategory, type Category } from "@/src/services/api";
 // Import các hàm gọi API thật (Đảm bảo bạn đã tạo file này ở Bước 3)
-
-// Định nghĩa model giống với C#
-interface Category {
-  id: number;
-  name: string;
-  slug: string;
-  isActive: boolean;
-  parentId?: number | null;
-  children?: Category[]; 
-}
 
 export default function CategoryPage() {
   // 1. STATE QUẢN LÝ DANH SÁCH
@@ -36,10 +26,8 @@ export default function CategoryPage() {
   // ==========================================================
   const loadData = () => {
     fetchCategories()
-      .then((res: any) => {
-        // Tùy vào cách cấu hình Axios, dữ liệu có thể nằm trong res hoặc res.data
-        const data = res.data ? res.data : res; 
-        setCategories(data);
+      .then((res) => {
+        setCategories(res.data);
       })
       .catch((err) => {
         console.error("Lỗi khi tải danh sách danh mục:", err);

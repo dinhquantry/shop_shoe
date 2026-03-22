@@ -16,6 +16,7 @@ if (app.Environment.IsDevelopment())
 }
 app.UseCors("AllowNextJsApp");
 app.UseHttpsRedirection();
+app.UseStaticFiles();
 app.MapControllers(); 
 
 app.Run();

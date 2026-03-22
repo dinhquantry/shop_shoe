@@ -6,7 +6,6 @@ namespace backend.Extensions
         {
             services.AddEndpointsApiExplorer();
             services.AddSwaggerGen();
-            
             return services;
         }
     }

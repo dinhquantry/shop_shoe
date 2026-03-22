@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Tags, Package, ShoppingCart } from "lucide-react";
+import { LayoutDashboard, Tags, Package, ShoppingCart, ChartBar, Badge, BadgeDollarSign } from "lucide-react";
 import clsx from "clsx";
 
 interface SidebarProps {
@@ -12,10 +12,12 @@ export default function Sidebar({ isOpen }: SidebarProps) {
   const pathname = usePathname();
 
   const menuItems = [
-    { name: "Thống kê", path: "/admin", icon: <LayoutDashboard size={20} /> },
-    { name: "Danh mục giày", path: "/admin/categories", icon: <Tags size={20} /> },
-    { name: "Quản lý giày", path: "/admin/products", icon: <Package size={20} /> },
-    { name: "Đơn hàng", path: "/admin/orders", icon: <ShoppingCart size={20} /> },
+    { name: "Dashboard", path: "/admin", icon: <LayoutDashboard size={20}/> },
+    { name: "Người dùng", path: "", icon: <Tags size={20} /> },
+    { name: "Sản phẩm", path: "", icon: <Package size={20} /> },
+    { name: "Danh mục hệ thống", path: "", icon: <ShoppingCart size={20} />},
+    { name: "Đơn hàng", path: "", icon: <BadgeDollarSign size={20} /> },
+    { name: "Thống kê", path: "", icon: <ChartBar size={20} /> },
   ];
 
   return (
