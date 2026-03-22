@@ -48,7 +48,13 @@ namespace backend.Controllers
                     .ThenInclude(x => x.MauSac)
                 .FirstOrDefaultAsync(x => x.Id == id);
 
-            return item is null ? NotFound() : Ok(MapSanPhamDetail(item));
+            return item is null
+                ? NotFound(new ProblemDetails
+                {
+                    Title = "Khong tim thay san pham.",
+                    Status = StatusCodes.Status404NotFound
+                })
+                : Ok(MapSanPhamDetail(item));
         }
 
         [HttpPost]
@@ -60,7 +66,12 @@ namespace backend.Controllers
 
             if (!categoryExists || !brandExists)
             {
-                return BadRequest(new { message = "Danh muc hoac thuong hieu khong hop le." });
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Du lieu san pham khong hop le.",
+                    Detail = "Danh muc hoac thuong hieu khong ton tai.",
+                    Status = StatusCodes.Status400BadRequest
+                });
             }
 
             var entity = new SanPham
@@ -88,7 +99,11 @@ namespace backend.Controllers
             var entity = await _context.SanPhams.FindAsync(id);
             if (entity is null)
             {
-                return NotFound();
+                return NotFound(new ProblemDetails
+                {
+                    Title = "Khong tim thay san pham.",
+                    Status = StatusCodes.Status404NotFound
+                });
             }
 
             var categoryExists = await _context.DanhMucs.AnyAsync(x => x.Id == request.MaDanhMuc);
@@ -96,7 +111,12 @@ namespace backend.Controllers
 
             if (!categoryExists || !brandExists)
             {
-                return BadRequest(new { message = "Danh muc hoac thuong hieu khong hop le." });
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Du lieu san pham khong hop le.",
+                    Detail = "Danh muc hoac thuong hieu khong ton tai.",
+                    Status = StatusCodes.Status400BadRequest
+                });
             }
 
             entity.TenSanPham = request.TenSanPham.Trim();
@@ -120,7 +140,11 @@ namespace backend.Controllers
             var entity = await _context.SanPhams.FindAsync(id);
             if (entity is null)
             {
-                return NotFound();
+                return NotFound(new ProblemDetails
+                {
+                    Title = "Khong tim thay san pham.",
+                    Status = StatusCodes.Status404NotFound
+                });
             }
 
             var hasReferences = await _context.BienTheSanPhams.AnyAsync(x => x.MaSanPham == id)
@@ -128,7 +152,12 @@ namespace backend.Controllers
 
             if (hasReferences)
             {
-                return BadRequest(new { message = "Khong the xoa san pham da phat sinh du lieu lien quan." });
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Khong the xoa san pham.",
+                    Detail = "San pham da phat sinh du lieu lien quan.",
+                    Status = StatusCodes.Status400BadRequest
+                });
             }
 
             _context.SanPhams.Remove(entity);

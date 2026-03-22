@@ -99,12 +99,22 @@ namespace backend.Controllers
 
             if (!userExists || variant is null)
             {
-                return BadRequest(new { message = "Nguoi dung hoac bien the san pham khong hop le." });
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Du lieu gio hang khong hop le.",
+                    Detail = "Nguoi dung hoac bien the san pham khong ton tai.",
+                    Status = StatusCodes.Status400BadRequest
+                });
             }
 
             if (request.SoLuong <= 0)
             {
-                return BadRequest(new { message = "So luong phai lon hon 0." });
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "So luong khong hop le.",
+                    Detail = "So luong phai lon hon 0.",
+                    Status = StatusCodes.Status400BadRequest
+                });
             }
 
             var existing = await _context.GioHangs.FirstOrDefaultAsync(x =>
@@ -115,7 +125,12 @@ namespace backend.Controllers
                 var newQuantity = existing.SoLuong + request.SoLuong;
                 if (newQuantity > variant.SoLuongTon)
                 {
-                    return BadRequest(new { message = "So luong vuot qua ton kho hien tai." });
+                    return BadRequest(new ProblemDetails
+                    {
+                        Title = "So luong vuot ton kho.",
+                        Detail = "So luong trong gio hang vuot qua ton kho hien tai.",
+                        Status = StatusCodes.Status400BadRequest
+                    });
                 }
 
                 existing.SoLuong = newQuantity;
@@ -127,7 +142,12 @@ namespace backend.Controllers
 
             if (request.SoLuong > variant.SoLuongTon)
             {
-                return BadRequest(new { message = "So luong vuot qua ton kho hien tai." });
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "So luong vuot ton kho.",
+                    Detail = "So luong trong gio hang vuot qua ton kho hien tai.",
+                    Status = StatusCodes.Status400BadRequest
+                });
             }
 
             var entity = new GioHang
@@ -173,17 +193,32 @@ namespace backend.Controllers
 
             if (!userExists || variant is null)
             {
-                return BadRequest(new { message = "Nguoi dung hoac bien the san pham khong hop le." });
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Du lieu gio hang khong hop le.",
+                    Detail = "Nguoi dung hoac bien the san pham khong ton tai.",
+                    Status = StatusCodes.Status400BadRequest
+                });
             }
 
             if (request.SoLuong <= 0)
             {
-                return BadRequest(new { message = "So luong phai lon hon 0." });
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "So luong khong hop le.",
+                    Detail = "So luong phai lon hon 0.",
+                    Status = StatusCodes.Status400BadRequest
+                });
             }
 
             if (request.SoLuong > variant.SoLuongTon)
             {
-                return BadRequest(new { message = "So luong vuot qua ton kho hien tai." });
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "So luong vuot ton kho.",
+                    Detail = "So luong trong gio hang vuot qua ton kho hien tai.",
+                    Status = StatusCodes.Status400BadRequest
+                });
             }
 
             var duplicated = await _context.GioHangs.AnyAsync(x =>
@@ -193,7 +228,11 @@ namespace backend.Controllers
 
             if (duplicated)
             {
-                return Conflict(new { message = "San pham da ton tai trong gio hang." });
+                return Conflict(new ProblemDetails
+                {
+                    Title = "San pham da ton tai trong gio hang.",
+                    Status = StatusCodes.Status409Conflict
+                });
             }
 
             entity.MaNguoiDung = resolvedUserId;

@@ -86,13 +86,22 @@ namespace backend.Controllers
             var resolvedUserId = User.HasManagementAccess() ? request.MaNguoiDung : currentUserId.Value;
             if (request.Items.Count == 0)
             {
-                return BadRequest(new { message = "Hoa don phai co it nhat 1 san pham." });
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Hoa don khong hop le.",
+                    Detail = "Hoa don phai co it nhat 1 san pham.",
+                    Status = StatusCodes.Status400BadRequest
+                });
             }
 
             var user = await _context.NguoiDungs.FindAsync(resolvedUserId);
             if (user is null)
             {
-                return BadRequest(new { message = "Nguoi dung khong hop le." });
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Nguoi dung khong hop le.",
+                    Status = StatusCodes.Status400BadRequest
+                });
             }
 
             var variantIds = request.Items.Select(x => x.MaBienThe).Distinct().ToList();
@@ -105,7 +114,12 @@ namespace backend.Controllers
 
             if (variants.Count != variantIds.Count)
             {
-                return BadRequest(new { message = "Co bien the san pham khong ton tai." });
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Du lieu san pham khong hop le.",
+                    Detail = "Co bien the san pham khong ton tai.",
+                    Status = StatusCodes.Status400BadRequest
+                });
             }
 
             var duplicatedVariant = request.Items
@@ -114,25 +128,45 @@ namespace backend.Controllers
 
             if (duplicatedVariant is not null)
             {
-                return BadRequest(new { message = "Danh sach san pham khong duoc trung bien the." });
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Danh sach san pham khong hop le.",
+                    Detail = "Danh sach san pham khong duoc trung bien the.",
+                    Status = StatusCodes.Status400BadRequest
+                });
             }
 
             foreach (var item in request.Items)
             {
                 if (item.SoLuong <= 0)
                 {
-                    return BadRequest(new { message = "So luong mua phai lon hon 0." });
+                    return BadRequest(new ProblemDetails
+                    {
+                        Title = "So luong mua khong hop le.",
+                        Detail = "So luong mua phai lon hon 0.",
+                        Status = StatusCodes.Status400BadRequest
+                    });
                 }
 
                 var variant = variants.First(x => x.Id == item.MaBienThe);
                 if (!variant.TrangThai || variant.SanPham is null || !variant.SanPham.TrangThai)
                 {
-                    return BadRequest(new { message = $"Bien the {variant.SKU} hien khong kha dung." });
+                    return BadRequest(new ProblemDetails
+                    {
+                        Title = "Bien the san pham khong kha dung.",
+                        Detail = $"Bien the {variant.SKU} hien khong kha dung.",
+                        Status = StatusCodes.Status400BadRequest
+                    });
                 }
 
                 if (item.SoLuong > variant.SoLuongTon)
                 {
-                    return BadRequest(new { message = $"So luong mua vuot ton kho cua SKU {variant.SKU}." });
+                    return BadRequest(new ProblemDetails
+                    {
+                        Title = "So luong mua vuot ton kho.",
+                        Detail = $"So luong mua vuot ton kho cua SKU {variant.SKU}.",
+                        Status = StatusCodes.Status400BadRequest
+                    });
                 }
             }
 
@@ -150,18 +184,31 @@ namespace backend.Controllers
                 khuyenMai = await _context.KhuyenMais.FindAsync(request.MaKhuyenMai.Value);
                 if (khuyenMai is null || !khuyenMai.TrangThai)
                 {
-                    return BadRequest(new { message = "Khuyen mai khong hop le." });
+                    return BadRequest(new ProblemDetails
+                    {
+                        Title = "Khuyen mai khong hop le.",
+                        Status = StatusCodes.Status400BadRequest
+                    });
                 }
 
                 var now = DateTime.Now;
                 if (khuyenMai.SoLuong <= 0 || khuyenMai.NgayBatDau > now || khuyenMai.NgayKetThuc < now)
                 {
-                    return BadRequest(new { message = "Khuyen mai hien khong ap dung duoc." });
+                    return BadRequest(new ProblemDetails
+                    {
+                        Title = "Khuyen mai hien khong ap dung duoc.",
+                        Status = StatusCodes.Status400BadRequest
+                    });
                 }
 
                 if (tamTinh < khuyenMai.GiaTriDonToiThieu)
                 {
-                    return BadRequest(new { message = "Don hang chua du gia tri toi thieu de ap khuyen mai." });
+                    return BadRequest(new ProblemDetails
+                    {
+                        Title = "Khong du dieu kien ap khuyen mai.",
+                        Detail = "Don hang chua du gia tri toi thieu de ap khuyen mai.",
+                        Status = StatusCodes.Status400BadRequest
+                    });
                 }
 
                 soTienGiam = Math.Round(tamTinh * khuyenMai.PhanTramGiam / 100m, 2);
