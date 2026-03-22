@@ -1,6 +1,7 @@
 using backend.Data;
 using backend.DTOs;
 using backend.Models;
+using backend.Security;
 using backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -46,10 +47,22 @@ namespace backend.Controllers
                 });
             }
 
-            var maQuyenMacDinh = await _context.PhanQuyens
-                .Where(x => x.TenQuyen.ToLower() == "customer" || x.TenQuyen.ToLower() == "khachhang")
-                .Select(x => (int?)x.Id)
-                .FirstOrDefaultAsync() ?? 1;
+            var maQuyenMacDinh = (await _context.PhanQuyens
+                .AsNoTracking()
+                .Select(x => new { x.Id, x.TenQuyen })
+                .ToListAsync())
+                .FirstOrDefault(x => RoleNameHelper.IsCustomerRole(x.TenQuyen))
+                ?.Id;
+
+            if (!maQuyenMacDinh.HasValue)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+                {
+                    Title = "Chua khoi tao role KhachHang.",
+                    Detail = "He thong chua co role mac dinh cho khach hang.",
+                    Status = StatusCodes.Status500InternalServerError
+                });
+            }
 
             var user = new NguoiDung
             {
@@ -58,7 +71,7 @@ namespace backend.Controllers
                 SoDienThoai = request.SoDienThoai.Trim(),
                 TenDangNhap = request.TenDangNhap.Trim(),
                 DiaChi = request.DiaChi?.Trim(),
-                MaQuyen = maQuyenMacDinh,
+                MaQuyen = maQuyenMacDinh.Value,
                 TrangThai = 1,
                 CreatedAt = DateTime.Now
             };
