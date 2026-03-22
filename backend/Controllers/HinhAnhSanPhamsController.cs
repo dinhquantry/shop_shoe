@@ -1,6 +1,8 @@
 using backend.Data;
 using backend.DTOs;
 using backend.Models;
+using backend.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -20,6 +22,7 @@ namespace backend.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<HinhAnhSanPhamAdminDto>>> GetAll([FromQuery] int? maSanPham)
         {
             var query = BaseImageQuery();
@@ -39,6 +42,7 @@ namespace backend.Controllers
         }
 
         [HttpGet("{id:int}")]
+        [AllowAnonymous]
         public async Task<ActionResult<HinhAnhSanPhamAdminDto>> GetById(int id)
         {
             var item = await BaseImageQuery().FirstOrDefaultAsync(x => x.Id == id);
@@ -46,6 +50,7 @@ namespace backend.Controllers
         }
 
         [HttpPost]
+        [Authorize(Policy = AppPolicies.Management)]
         public async Task<ActionResult<HinhAnhSanPhamAdminDto>> Create([FromBody] HinhAnhSanPhamRequestDto request)
         {
             if (request.ThuTu < 0)
@@ -99,6 +104,7 @@ namespace backend.Controllers
         }
 
         [HttpPut("{id:int}")]
+        [Authorize(Policy = AppPolicies.Management)]
         public async Task<ActionResult<HinhAnhSanPhamAdminDto>> Update(int id, [FromBody] HinhAnhSanPhamRequestDto request)
         {
             if (request.ThuTu < 0)
@@ -187,6 +193,7 @@ namespace backend.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [Authorize(Policy = AppPolicies.Management)]
         public async Task<IActionResult> Delete(int id)
         {
             var entity = await _context.HinhAnhSanPhams.FindAsync(id);

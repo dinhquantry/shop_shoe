@@ -1,6 +1,8 @@
 using backend.Data;
 using backend.DTOs;
 using backend.Models;
+using backend.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,6 +10,7 @@ namespace backend.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class HoaDonsController : ControllerBase
     {
         private readonly AppDbContext _context;
@@ -20,11 +23,25 @@ namespace backend.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<HoaDonDto>>> GetAll([FromQuery] int? maNguoiDung)
         {
+            var currentUserId = User.GetUserId();
+            if (!currentUserId.HasValue)
+            {
+                return Unauthorized();
+            }
+
+            var isManagement = User.HasManagementAccess();
             var query = BaseOrderQuery();
 
-            if (maNguoiDung.HasValue)
+            if (isManagement)
             {
-                query = query.Where(x => x.MaNguoiDung == maNguoiDung.Value);
+                if (maNguoiDung.HasValue)
+                {
+                    query = query.Where(x => x.MaNguoiDung == maNguoiDung.Value);
+                }
+            }
+            else
+            {
+                query = query.Where(x => x.MaNguoiDung == currentUserId.Value);
             }
 
             var items = await query
@@ -37,19 +54,42 @@ namespace backend.Controllers
         [HttpGet("{id:int}")]
         public async Task<ActionResult<HoaDonDto>> GetById(int id)
         {
+            var currentUserId = User.GetUserId();
+            if (!currentUserId.HasValue)
+            {
+                return Unauthorized();
+            }
+
             var item = await BaseOrderQuery().FirstOrDefaultAsync(x => x.Id == id);
-            return item is null ? NotFound() : Ok(MapHoaDon(item));
+            if (item is null)
+            {
+                return NotFound();
+            }
+
+            if (!User.HasManagementAccess() && item.MaNguoiDung != currentUserId.Value)
+            {
+                return Forbid();
+            }
+
+            return Ok(MapHoaDon(item));
         }
 
         [HttpPost]
         public async Task<ActionResult<HoaDonDto>> Create([FromBody] HoaDonCreateRequestDto request)
         {
+            var currentUserId = User.GetUserId();
+            if (!currentUserId.HasValue)
+            {
+                return Unauthorized();
+            }
+
+            var resolvedUserId = User.HasManagementAccess() ? request.MaNguoiDung : currentUserId.Value;
             if (request.Items.Count == 0)
             {
                 return BadRequest(new { message = "Hoa don phai co it nhat 1 san pham." });
             }
 
-            var user = await _context.NguoiDungs.FindAsync(request.MaNguoiDung);
+            var user = await _context.NguoiDungs.FindAsync(resolvedUserId);
             if (user is null)
             {
                 return BadRequest(new { message = "Nguoi dung khong hop le." });
@@ -141,7 +181,7 @@ namespace backend.Controllers
 
             var hoaDon = new HoaDon
             {
-                MaNguoiDung = request.MaNguoiDung,
+                MaNguoiDung = resolvedUserId,
                 MaKhuyenMai = request.MaKhuyenMai,
                 NgayDat = DateTime.Now,
                 TenNguoiNhan = request.TenNguoiNhan.Trim(),
@@ -183,7 +223,7 @@ namespace backend.Controllers
             }
 
             var cartItems = await _context.GioHangs
-                .Where(x => x.MaNguoiDung == request.MaNguoiDung && variantIds.Contains(x.MaBienThe))
+                .Where(x => x.MaNguoiDung == resolvedUserId && variantIds.Contains(x.MaBienThe))
                 .ToListAsync();
 
             if (cartItems.Count > 0)
@@ -199,6 +239,7 @@ namespace backend.Controllers
         }
 
         [HttpPut("{id:int}")]
+        [Authorize(Policy = AppPolicies.Management)]
         public async Task<ActionResult<HoaDonDto>> Update(int id, [FromBody] HoaDonUpdateRequestDto request)
         {
             var entity = await _context.HoaDons.FindAsync(id);
@@ -225,6 +266,7 @@ namespace backend.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [Authorize(Policy = AppPolicies.Management)]
         public async Task<IActionResult> Delete(int id)
         {
             var entity = await _context.HoaDons.FindAsync(id);

@@ -1,6 +1,8 @@
 using backend.Data;
 using backend.DTOs;
 using backend.Models;
+using backend.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,6 +20,7 @@ namespace backend.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<DanhMucDto>>> GetAll()
         {
             var items = await _context.DanhMucs
@@ -29,6 +32,7 @@ namespace backend.Controllers
         }
 
         [HttpGet("{id:int}")]
+        [AllowAnonymous]
         public async Task<ActionResult<DanhMucDto>> GetById(int id)
         {
             var item = await _context.DanhMucs
@@ -39,6 +43,7 @@ namespace backend.Controllers
         }
 
         [HttpPost]
+        [Authorize(Policy = AppPolicies.Management)]
         public async Task<ActionResult<DanhMucDto>> Create([FromBody] DanhMucRequestDto request)
         {
             var normalizedName = request.TenDanhMuc.Trim();
@@ -71,6 +76,7 @@ namespace backend.Controllers
         }
 
         [HttpPut("{id:int}")]
+        [Authorize(Policy = AppPolicies.Management)]
         public async Task<ActionResult<DanhMucDto>> Update(int id, [FromBody] DanhMucRequestDto request)
         {
             var entity = await _context.DanhMucs.FindAsync(id);
@@ -105,6 +111,7 @@ namespace backend.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [Authorize(Policy = AppPolicies.Management)]
         public async Task<IActionResult> Delete(int id)
         {
             var entity = await _context.DanhMucs.FindAsync(id);

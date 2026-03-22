@@ -1,6 +1,8 @@
 using backend.Data;
 using backend.DTOs;
 using backend.Models;
+using backend.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,6 +20,7 @@ namespace backend.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<SanPhamListItemDto>>> GetAll()
         {
             var items = await _context.SanPhams
@@ -32,6 +35,7 @@ namespace backend.Controllers
         }
 
         [HttpGet("{id:int}")]
+        [AllowAnonymous]
         public async Task<ActionResult<SanPhamDetailDto>> GetById(int id)
         {
             var item = await _context.SanPhams
@@ -48,6 +52,7 @@ namespace backend.Controllers
         }
 
         [HttpPost]
+        [Authorize(Policy = AppPolicies.Management)]
         public async Task<ActionResult<SanPhamDetailDto>> Create([FromBody] SanPhamRequestDto request)
         {
             var categoryExists = await _context.DanhMucs.AnyAsync(x => x.Id == request.MaDanhMuc);
@@ -77,6 +82,7 @@ namespace backend.Controllers
         }
 
         [HttpPut("{id:int}")]
+        [Authorize(Policy = AppPolicies.Management)]
         public async Task<ActionResult<SanPhamDetailDto>> Update(int id, [FromBody] SanPhamRequestDto request)
         {
             var entity = await _context.SanPhams.FindAsync(id);
@@ -108,6 +114,7 @@ namespace backend.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [Authorize(Policy = AppPolicies.Management)]
         public async Task<IActionResult> Delete(int id)
         {
             var entity = await _context.SanPhams.FindAsync(id);

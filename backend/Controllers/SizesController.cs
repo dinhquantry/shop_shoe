@@ -1,6 +1,8 @@
 using backend.Data;
 using backend.DTOs;
 using backend.Models;
+using backend.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,6 +20,7 @@ namespace backend.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<SizeDto>>> GetAll()
         {
             var items = await _context.Sizes
@@ -29,6 +32,7 @@ namespace backend.Controllers
         }
 
         [HttpGet("{id:int}")]
+        [AllowAnonymous]
         public async Task<ActionResult<SizeDto>> GetById(int id)
         {
             var item = await _context.Sizes
@@ -39,6 +43,7 @@ namespace backend.Controllers
         }
 
         [HttpPost]
+        [Authorize(Policy = AppPolicies.Management)]
         public async Task<ActionResult<SizeDto>> Create([FromBody] SizeRequestDto request)
         {
             var normalizedName = request.TenSize.Trim();
@@ -69,6 +74,7 @@ namespace backend.Controllers
         }
 
         [HttpPut("{id:int}")]
+        [Authorize(Policy = AppPolicies.Management)]
         public async Task<ActionResult<SizeDto>> Update(int id, [FromBody] SizeRequestDto request)
         {
             var entity = await _context.Sizes.FindAsync(id);
@@ -101,6 +107,7 @@ namespace backend.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [Authorize(Policy = AppPolicies.Management)]
         public async Task<IActionResult> Delete(int id)
         {
             var entity = await _context.Sizes.FindAsync(id);

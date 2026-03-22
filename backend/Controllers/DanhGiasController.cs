@@ -1,6 +1,8 @@
 using backend.Data;
 using backend.DTOs;
 using backend.Models;
+using backend.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,6 +20,7 @@ namespace backend.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<DanhGiaDto>>> GetAll([FromQuery] int? maSanPham, [FromQuery] int? maNguoiDung)
         {
             var query = BaseReviewQuery();
@@ -37,6 +40,7 @@ namespace backend.Controllers
         }
 
         [HttpGet("{id:int}")]
+        [AllowAnonymous]
         public async Task<ActionResult<DanhGiaDto>> GetById(int id)
         {
             var item = await BaseReviewQuery().FirstOrDefaultAsync(x => x.Id == id);
@@ -44,9 +48,17 @@ namespace backend.Controllers
         }
 
         [HttpPost]
+        [Authorize]
         public async Task<ActionResult<DanhGiaDto>> Create([FromBody] DanhGiaRequestDto request)
         {
-            var validationProblem = await ValidateReviewRequest(request);
+            var currentUserId = User.GetUserId();
+            if (!currentUserId.HasValue)
+            {
+                return Unauthorized();
+            }
+
+            var resolvedUserId = User.HasManagementAccess() ? request.MaNguoiDung : currentUserId.Value;
+            var validationProblem = await ValidateReviewRequest(request, resolvedUserId);
             if (validationProblem is not null)
             {
                 return validationProblem;
@@ -65,7 +77,7 @@ namespace backend.Controllers
             var entity = new DanhGia
             {
                 MaChiTietHoaDon = request.MaChiTietHoaDon,
-                MaNguoiDung = request.MaNguoiDung,
+                MaNguoiDung = resolvedUserId,
                 MaSanPham = request.MaSanPham,
                 SoSao = request.SoSao,
                 NoiDung = request.NoiDung?.Trim(),
@@ -81,15 +93,28 @@ namespace backend.Controllers
         }
 
         [HttpPut("{id:int}")]
+        [Authorize]
         public async Task<ActionResult<DanhGiaDto>> Update(int id, [FromBody] DanhGiaRequestDto request)
         {
+            var currentUserId = User.GetUserId();
+            if (!currentUserId.HasValue)
+            {
+                return Unauthorized();
+            }
+
             var entity = await _context.DanhGias.FindAsync(id);
             if (entity is null)
             {
                 return NotFound();
             }
 
-            var validationProblem = await ValidateReviewRequest(request);
+            if (!User.HasManagementAccess() && entity.MaNguoiDung != currentUserId.Value)
+            {
+                return Forbid();
+            }
+
+            var resolvedUserId = User.HasManagementAccess() ? request.MaNguoiDung : currentUserId.Value;
+            var validationProblem = await ValidateReviewRequest(request, resolvedUserId);
             if (validationProblem is not null)
             {
                 return validationProblem;
@@ -108,7 +133,7 @@ namespace backend.Controllers
             }
 
             entity.MaChiTietHoaDon = request.MaChiTietHoaDon;
-            entity.MaNguoiDung = request.MaNguoiDung;
+            entity.MaNguoiDung = resolvedUserId;
             entity.MaSanPham = request.MaSanPham;
             entity.SoSao = request.SoSao;
             entity.NoiDung = request.NoiDung?.Trim();
@@ -122,12 +147,24 @@ namespace backend.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [Authorize]
         public async Task<IActionResult> Delete(int id)
         {
+            var currentUserId = User.GetUserId();
+            if (!currentUserId.HasValue)
+            {
+                return Unauthorized();
+            }
+
             var entity = await _context.DanhGias.FindAsync(id);
             if (entity is null)
             {
                 return NotFound();
+            }
+
+            if (!User.HasManagementAccess() && entity.MaNguoiDung != currentUserId.Value)
+            {
+                return Forbid();
             }
 
             _context.DanhGias.Remove(entity);
@@ -143,7 +180,7 @@ namespace backend.Controllers
                 .Include(x => x.ChiTietHoaDon);
         }
 
-        private async Task<ActionResult?> ValidateReviewRequest(DanhGiaRequestDto request)
+        private async Task<ActionResult?> ValidateReviewRequest(DanhGiaRequestDto request, int resolvedUserId)
         {
             if (request.SoSao < 1 || request.SoSao > 5)
             {
@@ -161,7 +198,7 @@ namespace backend.Controllers
                     .ThenInclude(x => x!.SanPham)
                 .FirstOrDefaultAsync(x => x.Id == request.MaChiTietHoaDon);
 
-            var userExists = await _context.NguoiDungs.AnyAsync(x => x.Id == request.MaNguoiDung);
+            var userExists = await _context.NguoiDungs.AnyAsync(x => x.Id == resolvedUserId);
             var productExists = await _context.SanPhams.AnyAsync(x => x.Id == request.MaSanPham);
 
             if (orderDetail is null || !userExists || !productExists)
@@ -174,7 +211,7 @@ namespace backend.Controllers
                 });
             }
 
-            if (orderDetail.HoaDon?.MaNguoiDung != request.MaNguoiDung)
+            if (orderDetail.HoaDon?.MaNguoiDung != resolvedUserId)
             {
                 return BadRequest(new ProblemDetails
                 {
