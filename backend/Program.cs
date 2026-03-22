@@ -8,8 +8,6 @@ builder.Services.AddCoreApplicationServices();
 
 var app = builder.Build();
 
-await backend.Data.AppDbSeeder.SeedDefaultDataAsync(app.Services);
-
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
