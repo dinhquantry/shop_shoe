@@ -10,6 +10,9 @@ namespace backend.Controllers
     [Route("api/[controller]")]
     public class UploadsController : ControllerBase
     {
+        private const long MaxFileSizeBytes = 5 * 1024 * 1024;
+        private const int MaxFileCount = 10;
+
         private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
         {
             ".jpg", ".jpeg", ".png", ".webp", ".gif"
@@ -26,26 +29,49 @@ namespace backend.Controllers
 
         [HttpPost("san-pham-anh")]
         [RequestSizeLimit(50_000_000)]
-        public async Task<IActionResult> UploadProductImages([FromForm] UploadAnhSanPhamRequestDto request)
+        public async Task<ActionResult<IEnumerable<HinhAnhSanPhamAdminDto>>> UploadProductImages([FromForm] UploadAnhSanPhamRequestDto request)
         {
-            var sanPhamExists = await _context.SanPhams.AnyAsync(x => x.Id == request.MaSanPham);
-            if (!sanPhamExists)
+            if (request.ThuTuBatDau < 0)
             {
-                return NotFound(new { message = "Khong tim thay san pham." });
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Thu tu bat dau khong hop le.",
+                    Detail = "Thu tu bat dau khong duoc am.",
+                    Status = StatusCodes.Status400BadRequest
+                });
+            }
+
+            if (request.Files.Count > MaxFileCount)
+            {
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "So luong file qua gioi han.",
+                    Detail = $"Chi duoc upload toi da {MaxFileCount} file moi lan.",
+                    Status = StatusCodes.Status400BadRequest
+                });
+            }
+
+            var product = await _context.SanPhams.FindAsync(request.MaSanPham);
+            if (product is null)
+            {
+                return NotFound(new ProblemDetails
+                {
+                    Title = "Khong tim thay san pham.",
+                    Status = StatusCodes.Status404NotFound
+                });
             }
 
             if (request.AnhChinhIndex.HasValue &&
                 (request.AnhChinhIndex.Value < 0 || request.AnhChinhIndex.Value >= request.Files.Count))
             {
-                return BadRequest(new { message = "AnhChinhIndex khong hop le." });
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Anh chinh index khong hop le.",
+                    Status = StatusCodes.Status400BadRequest
+                });
             }
 
-            var webRootPath = _environment.WebRootPath;
-            if (string.IsNullOrWhiteSpace(webRootPath))
-            {
-                webRootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
-            }
-
+            var webRootPath = GetWebRootPath();
             var uploadFolder = Path.Combine(webRootPath, "uploads", "products", request.MaSanPham.ToString());
             Directory.CreateDirectory(uploadFolder);
 
@@ -59,61 +85,118 @@ namespace backend.Controllers
                 : Math.Max(0, request.ThuTuBatDau);
 
             var uploadedImages = new List<HinhAnhSanPham>();
+            var savedPhysicalPaths = new List<string>();
 
-            for (var i = 0; i < request.Files.Count; i++)
+            try
             {
-                var file = request.Files[i];
-                if (file.Length <= 0)
+                for (var i = 0; i < request.Files.Count; i++)
                 {
-                    continue;
+                    var file = request.Files[i];
+                    if (file.Length <= 0)
+                    {
+                        continue;
+                    }
+
+                    if (file.Length > MaxFileSizeBytes)
+                    {
+                        CleanupFiles(savedPhysicalPaths);
+                        return BadRequest(new ProblemDetails
+                        {
+                            Title = "Kich thuoc file qua lon.",
+                            Detail = $"File '{file.FileName}' vuot gioi han {MaxFileSizeBytes / (1024 * 1024)}MB.",
+                            Status = StatusCodes.Status400BadRequest
+                        });
+                    }
+
+                    var extension = Path.GetExtension(file.FileName);
+                    if (!AllowedExtensions.Contains(extension))
+                    {
+                        CleanupFiles(savedPhysicalPaths);
+                        return BadRequest(new ProblemDetails
+                        {
+                            Title = "Dinh dang file khong hop le.",
+                            Detail = $"File '{file.FileName}' khong phai dinh dang anh duoc ho tro.",
+                            Status = StatusCodes.Status400BadRequest
+                        });
+                    }
+
+                    var uniqueFileName = $"{Guid.NewGuid():N}{extension}";
+                    var physicalPath = Path.Combine(uploadFolder, uniqueFileName);
+
+                    await using (var stream = new FileStream(physicalPath, FileMode.Create))
+                    {
+                        await file.CopyToAsync(stream);
+                    }
+
+                    savedPhysicalPaths.Add(physicalPath);
+
+                    var isMain = request.AnhChinhIndex.HasValue
+                        ? request.AnhChinhIndex.Value == i
+                        : !hasMainImage && uploadedImages.Count == 0;
+
+                    uploadedImages.Add(new HinhAnhSanPham
+                    {
+                        MaSanPham = request.MaSanPham,
+                        ImageUrl = $"/uploads/products/{request.MaSanPham}/{uniqueFileName}",
+                        IsMain = isMain,
+                        ThuTu = nextOrder++
+                    });
                 }
 
-                var extension = Path.GetExtension(file.FileName);
-                if (!AllowedExtensions.Contains(extension))
+                if (uploadedImages.Count == 0)
                 {
-                    return BadRequest(new { message = $"File '{file.FileName}' khong dung dinh dang anh hop le." });
+                    CleanupFiles(savedPhysicalPaths);
+                    return BadRequest(new ProblemDetails
+                    {
+                        Title = "Khong co file anh hop le de upload.",
+                        Status = StatusCodes.Status400BadRequest
+                    });
                 }
 
-                var uniqueFileName = $"{Guid.NewGuid():N}{extension}";
-                var physicalPath = Path.Combine(uploadFolder, uniqueFileName);
-
-                await using (var stream = new FileStream(physicalPath, FileMode.Create))
+                if (uploadedImages.Any(x => x.IsMain))
                 {
-                    await file.CopyToAsync(stream);
+                    foreach (var image in existingImages.Where(x => x.IsMain))
+                    {
+                        image.IsMain = false;
+                    }
                 }
 
-                var isMain = request.AnhChinhIndex.HasValue
-                    ? request.AnhChinhIndex.Value == i
-                    : !hasMainImage && uploadedImages.Count == 0;
+                _context.HinhAnhSanPhams.AddRange(uploadedImages);
+                await _context.SaveChangesAsync();
 
-                var image = new HinhAnhSanPham
+                return Ok(uploadedImages.Select(x => new HinhAnhSanPhamAdminDto
                 {
-                    MaSanPham = request.MaSanPham,
-                    ImageUrl = $"/uploads/products/{request.MaSanPham}/{uniqueFileName}",
-                    IsMain = isMain,
-                    ThuTu = nextOrder++
-                };
-
-                uploadedImages.Add(image);
+                    Id = x.Id,
+                    MaSanPham = x.MaSanPham,
+                    TenSanPham = product.TenSanPham,
+                    ImageUrl = x.ImageUrl,
+                    IsMain = x.IsMain,
+                    ThuTu = x.ThuTu
+                }));
             }
-
-            if (uploadedImages.Count == 0)
+            catch
             {
-                return BadRequest(new { message = "Khong co file anh hop le de upload." });
+                CleanupFiles(savedPhysicalPaths);
+                throw;
             }
+        }
 
-            if (uploadedImages.Any(x => x.IsMain))
+        private string GetWebRootPath()
+        {
+            return string.IsNullOrWhiteSpace(_environment.WebRootPath)
+                ? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot")
+                : _environment.WebRootPath;
+        }
+
+        private static void CleanupFiles(IEnumerable<string> paths)
+        {
+            foreach (var path in paths)
             {
-                foreach (var image in existingImages.Where(x => x.IsMain))
+                if (System.IO.File.Exists(path))
                 {
-                    image.IsMain = false;
+                    System.IO.File.Delete(path);
                 }
             }
-
-            _context.HinhAnhSanPhams.AddRange(uploadedImages);
-            await _context.SaveChangesAsync();
-
-            return Ok(uploadedImages);
         }
     }
 }

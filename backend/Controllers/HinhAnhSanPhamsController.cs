@@ -11,10 +11,12 @@ namespace backend.Controllers
     public class HinhAnhSanPhamsController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IWebHostEnvironment _environment;
 
-        public HinhAnhSanPhamsController(AppDbContext context)
+        public HinhAnhSanPhamsController(AppDbContext context, IWebHostEnvironment environment)
         {
             _context = context;
+            _environment = environment;
         }
 
         [HttpGet]
@@ -117,6 +119,7 @@ namespace backend.Controllers
 
             var oldProductId = entity.MaSanPham;
             var oldWasMain = entity.IsMain;
+            var oldImageUrl = entity.ImageUrl;
             var product = await _context.SanPhams.FindAsync(request.MaSanPham);
             if (product is null)
             {
@@ -159,6 +162,11 @@ namespace backend.Controllers
 
             await _context.SaveChangesAsync();
 
+            if (!string.Equals(oldImageUrl, entity.ImageUrl, StringComparison.OrdinalIgnoreCase))
+            {
+                await TryDeleteLocalFileIfUnused(oldImageUrl, id);
+            }
+
             if (oldProductId != request.MaSanPham && oldWasMain)
             {
                 var replacement = await _context.HinhAnhSanPhams
@@ -189,9 +197,12 @@ namespace backend.Controllers
 
             var productId = entity.MaSanPham;
             var wasMain = entity.IsMain;
+            var imageUrl = entity.ImageUrl;
 
             _context.HinhAnhSanPhams.Remove(entity);
             await _context.SaveChangesAsync();
+
+            await TryDeleteLocalFileIfUnused(imageUrl);
 
             if (wasMain)
             {
@@ -215,6 +226,38 @@ namespace backend.Controllers
         {
             return _context.HinhAnhSanPhams
                 .Include(x => x.SanPham);
+        }
+
+        private async Task TryDeleteLocalFileIfUnused(string? imageUrl, int? excludingImageId = null)
+        {
+            if (string.IsNullOrWhiteSpace(imageUrl) || !imageUrl.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            var query = _context.HinhAnhSanPhams.Where(x => x.ImageUrl == imageUrl);
+            if (excludingImageId.HasValue)
+            {
+                query = query.Where(x => x.Id != excludingImageId.Value);
+            }
+
+            var isStillUsed = await query.AnyAsync();
+            if (isStillUsed)
+            {
+                return;
+            }
+
+            var webRootPath = string.IsNullOrWhiteSpace(_environment.WebRootPath)
+                ? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot")
+                : _environment.WebRootPath;
+
+            var relativePath = imageUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+            var physicalPath = Path.Combine(webRootPath, relativePath);
+
+            if (System.IO.File.Exists(physicalPath))
+            {
+                System.IO.File.Delete(physicalPath);
+            }
         }
 
         private static HinhAnhSanPhamAdminDto MapImage(HinhAnhSanPham item)
