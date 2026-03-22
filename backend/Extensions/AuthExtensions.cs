@@ -1,7 +1,6 @@
 using System.Text;
 using System.Text.Json.Serialization;
 using backend.Configuration;
-using backend.Security;
 using backend.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -43,14 +42,7 @@ namespace backend.Extensions
                     };
                 });
 
-            services.AddAuthorization(options =>
-            {
-                options.AddPolicy(AppPolicies.Management, policy =>
-                {
-                    policy.RequireAuthenticatedUser();
-                    policy.RequireAssertion(context => context.User.HasManagementAccess());
-                });
-            });
+            services.AddAuthorization();
 
             return services;
         }

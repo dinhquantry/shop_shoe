@@ -1,6 +1,6 @@
 using System.Security.Claims;
 
-namespace backend.Security
+namespace backend.Extensions
 {
     public static class ClaimsPrincipalExtensions
     {
@@ -10,9 +10,9 @@ namespace backend.Security
             return int.TryParse(userIdClaim, out var userId) ? userId : null;
         }
 
-        public static bool HasManagementAccess(this ClaimsPrincipal user)
+        public static bool IsAdmin(this ClaimsPrincipal user)
         {
-            return user.FindAll(ClaimTypes.Role).Any(x => RoleNameHelper.IsAdminRole(x.Value));
+            return user.IsInRole("Admin");
         }
     }
 }

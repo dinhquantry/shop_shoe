@@ -1,7 +1,7 @@
 using backend.Data;
 using backend.DTOs;
 using backend.Models;
-using backend.Security;
+using backend.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -58,7 +58,7 @@ namespace backend.Controllers
         }
 
         [HttpPost]
-        [Authorize(Policy = AppPolicies.Management)]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<SanPhamDetailDto>> Create([FromBody] SanPhamRequestDto request)
         {
             var categoryExists = await _context.DanhMucs.AnyAsync(x => x.Id == request.MaDanhMuc);
@@ -93,7 +93,7 @@ namespace backend.Controllers
         }
 
         [HttpPut("{id:int}")]
-        [Authorize(Policy = AppPolicies.Management)]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<SanPhamDetailDto>> Update(int id, [FromBody] SanPhamRequestDto request)
         {
             var entity = await _context.SanPhams.FindAsync(id);
@@ -134,7 +134,7 @@ namespace backend.Controllers
         }
 
         [HttpDelete("{id:int}")]
-        [Authorize(Policy = AppPolicies.Management)]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)
         {
             var entity = await _context.SanPhams.FindAsync(id);

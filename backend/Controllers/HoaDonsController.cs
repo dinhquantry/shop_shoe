@@ -1,7 +1,7 @@
 using backend.Data;
 using backend.DTOs;
 using backend.Models;
-using backend.Security;
+using backend.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -29,7 +29,7 @@ namespace backend.Controllers
                 return Unauthorized();
             }
 
-            var isManagement = User.HasManagementAccess();
+            var isManagement = User.IsAdmin();
             var query = BaseOrderQuery();
 
             if (isManagement)
@@ -66,7 +66,7 @@ namespace backend.Controllers
                 return NotFound();
             }
 
-            if (!User.HasManagementAccess() && item.MaNguoiDung != currentUserId.Value)
+            if (!User.IsAdmin() && item.MaNguoiDung != currentUserId.Value)
             {
                 return Forbid();
             }
@@ -83,7 +83,7 @@ namespace backend.Controllers
                 return Unauthorized();
             }
 
-            var resolvedUserId = User.HasManagementAccess() ? request.MaNguoiDung : currentUserId.Value;
+            var resolvedUserId = User.IsAdmin() ? request.MaNguoiDung : currentUserId.Value;
             if (request.Items.Count == 0)
             {
                 return BadRequest(new ProblemDetails
@@ -286,7 +286,7 @@ namespace backend.Controllers
         }
 
         [HttpPut("{id:int}")]
-        [Authorize(Policy = AppPolicies.Management)]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<HoaDonDto>> Update(int id, [FromBody] HoaDonUpdateRequestDto request)
         {
             var entity = await _context.HoaDons.FindAsync(id);
@@ -313,7 +313,7 @@ namespace backend.Controllers
         }
 
         [HttpDelete("{id:int}")]
-        [Authorize(Policy = AppPolicies.Management)]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)
         {
             var entity = await _context.HoaDons.FindAsync(id);

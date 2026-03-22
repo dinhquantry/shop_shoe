@@ -1,7 +1,7 @@
 using backend.Data;
 using backend.DTOs;
 using backend.Models;
-using backend.Security;
+using backend.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -20,7 +20,7 @@ namespace backend.Controllers
         }
 
         [HttpGet]
-        [Authorize(Policy = AppPolicies.Management)]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<IEnumerable<KhuyenMaiDto>>> GetAll()
         {
             var items = await _context.KhuyenMais
@@ -31,7 +31,7 @@ namespace backend.Controllers
         }
 
         [HttpGet("{id:int}")]
-        [Authorize(Policy = AppPolicies.Management)]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<KhuyenMaiDto>> GetById(int id)
         {
             var item = await _context.KhuyenMais.FindAsync(id);
@@ -39,7 +39,7 @@ namespace backend.Controllers
         }
 
         [HttpPost]
-        [Authorize(Policy = AppPolicies.Management)]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<KhuyenMaiDto>> Create([FromBody] KhuyenMaiRequestDto request)
         {
             var validationProblem = ValidateKhuyenMaiRequest(request);
@@ -77,7 +77,7 @@ namespace backend.Controllers
         }
 
         [HttpPut("{id:int}")]
-        [Authorize(Policy = AppPolicies.Management)]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<KhuyenMaiDto>> Update(int id, [FromBody] KhuyenMaiRequestDto request)
         {
             var entity = await _context.KhuyenMais.FindAsync(id);
@@ -117,7 +117,7 @@ namespace backend.Controllers
         }
 
         [HttpDelete("{id:int}")]
-        [Authorize(Policy = AppPolicies.Management)]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)
         {
             var entity = await _context.KhuyenMais.FindAsync(id);

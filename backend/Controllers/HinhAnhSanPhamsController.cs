@@ -1,7 +1,7 @@
 using backend.Data;
 using backend.DTOs;
 using backend.Models;
-using backend.Security;
+using backend.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -50,7 +50,7 @@ namespace backend.Controllers
         }
 
         [HttpPost]
-        [Authorize(Policy = AppPolicies.Management)]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<HinhAnhSanPhamAdminDto>> Create([FromBody] HinhAnhSanPhamRequestDto request)
         {
             if (request.ThuTu < 0)
@@ -104,7 +104,7 @@ namespace backend.Controllers
         }
 
         [HttpPut("{id:int}")]
-        [Authorize(Policy = AppPolicies.Management)]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<HinhAnhSanPhamAdminDto>> Update(int id, [FromBody] HinhAnhSanPhamRequestDto request)
         {
             if (request.ThuTu < 0)
@@ -193,7 +193,7 @@ namespace backend.Controllers
         }
 
         [HttpDelete("{id:int}")]
-        [Authorize(Policy = AppPolicies.Management)]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)
         {
             var entity = await _context.HinhAnhSanPhams.FindAsync(id);

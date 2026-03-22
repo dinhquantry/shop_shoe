@@ -1,7 +1,7 @@
 using backend.Data;
 using backend.DTOs;
 using backend.Models;
-using backend.Security;
+using backend.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -57,7 +57,7 @@ namespace backend.Controllers
                 return Unauthorized();
             }
 
-            var resolvedUserId = User.HasManagementAccess() ? request.MaNguoiDung : currentUserId.Value;
+            var resolvedUserId = User.IsAdmin() ? request.MaNguoiDung : currentUserId.Value;
             var validationProblem = await ValidateReviewRequest(request, resolvedUserId);
             if (validationProblem is not null)
             {
@@ -108,12 +108,12 @@ namespace backend.Controllers
                 return NotFound();
             }
 
-            if (!User.HasManagementAccess() && entity.MaNguoiDung != currentUserId.Value)
+            if (!User.IsAdmin() && entity.MaNguoiDung != currentUserId.Value)
             {
                 return Forbid();
             }
 
-            var resolvedUserId = User.HasManagementAccess() ? request.MaNguoiDung : currentUserId.Value;
+            var resolvedUserId = User.IsAdmin() ? request.MaNguoiDung : currentUserId.Value;
             var validationProblem = await ValidateReviewRequest(request, resolvedUserId);
             if (validationProblem is not null)
             {
@@ -162,7 +162,7 @@ namespace backend.Controllers
                 return NotFound();
             }
 
-            if (!User.HasManagementAccess() && entity.MaNguoiDung != currentUserId.Value)
+            if (!User.IsAdmin() && entity.MaNguoiDung != currentUserId.Value)
             {
                 return Forbid();
             }

@@ -1,7 +1,6 @@
 using backend.Data;
 using backend.DTOs;
 using backend.Models;
-using backend.Security;
 using backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -47,12 +46,11 @@ namespace backend.Controllers
                 });
             }
 
-            var maQuyenMacDinh = (await _context.PhanQuyens
+            var maQuyenMacDinh = await _context.PhanQuyens
                 .AsNoTracking()
-                .Select(x => new { x.Id, x.TenQuyen })
-                .ToListAsync())
-                .FirstOrDefault(x => RoleNameHelper.IsCustomerRole(x.TenQuyen))
-                ?.Id;
+                .Where(x => x.TenQuyen == "KhachHang")
+                .Select(x => (int?)x.Id)
+                .FirstOrDefaultAsync();
 
             if (!maQuyenMacDinh.HasValue)
             {
