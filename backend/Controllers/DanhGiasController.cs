@@ -1,4 +1,5 @@
 using backend.Data;
+using backend.DTOs;
 using backend.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -17,46 +18,48 @@ namespace backend.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<DanhGia>>> GetAll()
+        public async Task<ActionResult<IEnumerable<DanhGiaDto>>> GetAll([FromQuery] int? maSanPham, [FromQuery] int? maNguoiDung)
         {
-            var items = await _context.DanhGias
-                .Include(x => x.NguoiDung)
-                .Include(x => x.SanPham)
-                .Include(x => x.ChiTietHoaDon)
-                .OrderByDescending(x => x.Id)
-                .ToListAsync();
+            var query = BaseReviewQuery();
 
-            return Ok(items);
+            if (maSanPham.HasValue)
+            {
+                query = query.Where(x => x.MaSanPham == maSanPham.Value);
+            }
+
+            if (maNguoiDung.HasValue)
+            {
+                query = query.Where(x => x.MaNguoiDung == maNguoiDung.Value);
+            }
+
+            var items = await query.OrderByDescending(x => x.Id).ToListAsync();
+            return Ok(items.Select(MapDanhGia));
         }
 
         [HttpGet("{id:int}")]
-        public async Task<ActionResult<DanhGia>> GetById(int id)
+        public async Task<ActionResult<DanhGiaDto>> GetById(int id)
         {
-            var item = await _context.DanhGias
-                .Include(x => x.NguoiDung)
-                .Include(x => x.SanPham)
-                .Include(x => x.ChiTietHoaDon)
-                .FirstOrDefaultAsync(x => x.Id == id);
-
-            return item is null ? NotFound() : Ok(item);
+            var item = await BaseReviewQuery().FirstOrDefaultAsync(x => x.Id == id);
+            return item is null ? NotFound() : Ok(MapDanhGia(item));
         }
 
         [HttpPost]
-        public async Task<ActionResult<DanhGia>> Create([FromBody] DanhGia request)
+        public async Task<ActionResult<DanhGiaDto>> Create([FromBody] DanhGiaRequestDto request)
         {
-            var orderDetailExists = await _context.ChiTietHoaDons.AnyAsync(x => x.Id == request.MaChiTietHoaDon);
-            var userExists = await _context.NguoiDungs.AnyAsync(x => x.Id == request.MaNguoiDung);
-            var productExists = await _context.SanPhams.AnyAsync(x => x.Id == request.MaSanPham);
-
-            if (!orderDetailExists || !userExists || !productExists)
+            var validationProblem = await ValidateReviewRequest(request);
+            if (validationProblem is not null)
             {
-                return BadRequest(new { message = "Chi tiet hoa don, nguoi dung hoac san pham khong hop le." });
+                return validationProblem;
             }
 
             var duplicated = await _context.DanhGias.AnyAsync(x => x.MaChiTietHoaDon == request.MaChiTietHoaDon);
             if (duplicated)
             {
-                return Conflict(new { message = "Chi tiet hoa don nay da duoc danh gia." });
+                return Conflict(new ProblemDetails
+                {
+                    Title = "Chi tiet hoa don nay da duoc danh gia.",
+                    Status = StatusCodes.Status409Conflict
+                });
             }
 
             var entity = new DanhGia
@@ -66,17 +69,19 @@ namespace backend.Controllers
                 MaSanPham = request.MaSanPham,
                 SoSao = request.SoSao,
                 NoiDung = request.NoiDung?.Trim(),
-                NgayDanhGia = request.NgayDanhGia == default ? DateTime.Now : request.NgayDanhGia,
+                NgayDanhGia = request.NgayDanhGia ?? DateTime.Now,
                 TrangThai = request.TrangThai
             };
 
             _context.DanhGias.Add(entity);
             await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetById), new { id = entity.Id }, entity);
+
+            var created = await BaseReviewQuery().FirstAsync(x => x.Id == entity.Id);
+            return CreatedAtAction(nameof(GetById), new { id = entity.Id }, MapDanhGia(created));
         }
 
         [HttpPut("{id:int}")]
-        public async Task<ActionResult<DanhGia>> Update(int id, [FromBody] DanhGia request)
+        public async Task<ActionResult<DanhGiaDto>> Update(int id, [FromBody] DanhGiaRequestDto request)
         {
             var entity = await _context.DanhGias.FindAsync(id);
             if (entity is null)
@@ -84,13 +89,10 @@ namespace backend.Controllers
                 return NotFound();
             }
 
-            var orderDetailExists = await _context.ChiTietHoaDons.AnyAsync(x => x.Id == request.MaChiTietHoaDon);
-            var userExists = await _context.NguoiDungs.AnyAsync(x => x.Id == request.MaNguoiDung);
-            var productExists = await _context.SanPhams.AnyAsync(x => x.Id == request.MaSanPham);
-
-            if (!orderDetailExists || !userExists || !productExists)
+            var validationProblem = await ValidateReviewRequest(request);
+            if (validationProblem is not null)
             {
-                return BadRequest(new { message = "Chi tiet hoa don, nguoi dung hoac san pham khong hop le." });
+                return validationProblem;
             }
 
             var duplicated = await _context.DanhGias.AnyAsync(x =>
@@ -98,7 +100,11 @@ namespace backend.Controllers
 
             if (duplicated)
             {
-                return Conflict(new { message = "Chi tiet hoa don nay da duoc danh gia." });
+                return Conflict(new ProblemDetails
+                {
+                    Title = "Chi tiet hoa don nay da duoc danh gia.",
+                    Status = StatusCodes.Status409Conflict
+                });
             }
 
             entity.MaChiTietHoaDon = request.MaChiTietHoaDon;
@@ -106,11 +112,13 @@ namespace backend.Controllers
             entity.MaSanPham = request.MaSanPham;
             entity.SoSao = request.SoSao;
             entity.NoiDung = request.NoiDung?.Trim();
-            entity.NgayDanhGia = request.NgayDanhGia;
+            entity.NgayDanhGia = request.NgayDanhGia ?? entity.NgayDanhGia;
             entity.TrangThai = request.TrangThai;
 
             await _context.SaveChangesAsync();
-            return Ok(entity);
+
+            var updated = await BaseReviewQuery().FirstAsync(x => x.Id == entity.Id);
+            return Ok(MapDanhGia(updated));
         }
 
         [HttpDelete("{id:int}")]
@@ -125,6 +133,96 @@ namespace backend.Controllers
             _context.DanhGias.Remove(entity);
             await _context.SaveChangesAsync();
             return NoContent();
+        }
+
+        private IQueryable<DanhGia> BaseReviewQuery()
+        {
+            return _context.DanhGias
+                .Include(x => x.NguoiDung)
+                .Include(x => x.SanPham)
+                .Include(x => x.ChiTietHoaDon);
+        }
+
+        private async Task<ActionResult?> ValidateReviewRequest(DanhGiaRequestDto request)
+        {
+            if (request.SoSao < 1 || request.SoSao > 5)
+            {
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "So sao khong hop le.",
+                    Detail = "So sao phai nam trong khoang 1 den 5.",
+                    Status = StatusCodes.Status400BadRequest
+                });
+            }
+
+            var orderDetail = await _context.ChiTietHoaDons
+                .Include(x => x.HoaDon)
+                .Include(x => x.BienTheSanPham)
+                    .ThenInclude(x => x!.SanPham)
+                .FirstOrDefaultAsync(x => x.Id == request.MaChiTietHoaDon);
+
+            var userExists = await _context.NguoiDungs.AnyAsync(x => x.Id == request.MaNguoiDung);
+            var productExists = await _context.SanPhams.AnyAsync(x => x.Id == request.MaSanPham);
+
+            if (orderDetail is null || !userExists || !productExists)
+            {
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Du lieu danh gia khong hop le.",
+                    Detail = "Chi tiet hoa don, nguoi dung hoac san pham khong ton tai.",
+                    Status = StatusCodes.Status400BadRequest
+                });
+            }
+
+            if (orderDetail.HoaDon?.MaNguoiDung != request.MaNguoiDung)
+            {
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Nguoi dung khong khop don hang.",
+                    Detail = "Chi duoc danh gia don hang cua chinh minh.",
+                    Status = StatusCodes.Status400BadRequest
+                });
+            }
+
+            if (orderDetail.HoaDon.TrangThaiDonHang != 3)
+            {
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Chua the danh gia don hang nay.",
+                    Detail = "Chi co the danh gia khi don hang da hoan tat.",
+                    Status = StatusCodes.Status400BadRequest
+                });
+            }
+
+            var productIdFromDetail = orderDetail.BienTheSanPham?.SanPham?.Id;
+            if (productIdFromDetail != request.MaSanPham)
+            {
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "San pham danh gia khong khop.",
+                    Detail = "San pham phai trung voi san pham trong chi tiet hoa don.",
+                    Status = StatusCodes.Status400BadRequest
+                });
+            }
+
+            return null;
+        }
+
+        private static DanhGiaDto MapDanhGia(DanhGia item)
+        {
+            return new DanhGiaDto
+            {
+                Id = item.Id,
+                MaChiTietHoaDon = item.MaChiTietHoaDon,
+                MaNguoiDung = item.MaNguoiDung,
+                TenNguoiDung = item.NguoiDung?.HoTen ?? string.Empty,
+                MaSanPham = item.MaSanPham,
+                TenSanPham = item.SanPham?.TenSanPham ?? string.Empty,
+                SoSao = item.SoSao,
+                NoiDung = item.NoiDung,
+                NgayDanhGia = item.NgayDanhGia,
+                TrangThai = item.TrangThai
+            };
         }
     }
 }

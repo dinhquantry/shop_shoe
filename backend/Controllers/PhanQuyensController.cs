@@ -1,4 +1,5 @@
 using backend.Data;
+using backend.DTOs;
 using backend.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -17,27 +18,38 @@ namespace backend.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<PhanQuyen>>> GetAll()
+        public async Task<ActionResult<IEnumerable<PhanQuyenDto>>> GetAll()
         {
-            var items = await _context.PhanQuyens.OrderBy(x => x.Id).ToListAsync();
-            return Ok(items);
+            var items = await _context.PhanQuyens
+                .Include(x => x.NguoiDungs)
+                .OrderBy(x => x.Id)
+                .ToListAsync();
+
+            return Ok(items.Select(MapPhanQuyen));
         }
 
         [HttpGet("{id:int}")]
-        public async Task<ActionResult<PhanQuyen>> GetById(int id)
+        public async Task<ActionResult<PhanQuyenDto>> GetById(int id)
         {
-            var item = await _context.PhanQuyens.FindAsync(id);
-            return item is null ? NotFound() : Ok(item);
+            var item = await _context.PhanQuyens
+                .Include(x => x.NguoiDungs)
+                .FirstOrDefaultAsync(x => x.Id == id);
+
+            return item is null ? NotFound() : Ok(MapPhanQuyen(item));
         }
 
         [HttpPost]
-        public async Task<ActionResult<PhanQuyen>> Create([FromBody] PhanQuyen request)
+        public async Task<ActionResult<PhanQuyenDto>> Create([FromBody] PhanQuyenRequestDto request)
         {
             var normalizedName = request.TenQuyen.Trim();
             var exists = await _context.PhanQuyens.AnyAsync(x => x.TenQuyen.ToLower() == normalizedName.ToLower());
             if (exists)
             {
-                return Conflict(new { message = "Ten quyen da ton tai." });
+                return Conflict(new ProblemDetails
+                {
+                    Title = "Ten quyen da ton tai.",
+                    Status = StatusCodes.Status409Conflict
+                });
             }
 
             var entity = new PhanQuyen
@@ -48,11 +60,16 @@ namespace backend.Controllers
 
             _context.PhanQuyens.Add(entity);
             await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetById), new { id = entity.Id }, entity);
+
+            var created = await _context.PhanQuyens
+                .Include(x => x.NguoiDungs)
+                .FirstAsync(x => x.Id == entity.Id);
+
+            return CreatedAtAction(nameof(GetById), new { id = entity.Id }, MapPhanQuyen(created));
         }
 
         [HttpPut("{id:int}")]
-        public async Task<ActionResult<PhanQuyen>> Update(int id, [FromBody] PhanQuyen request)
+        public async Task<ActionResult<PhanQuyenDto>> Update(int id, [FromBody] PhanQuyenRequestDto request)
         {
             var entity = await _context.PhanQuyens.FindAsync(id);
             if (entity is null)
@@ -64,14 +81,23 @@ namespace backend.Controllers
             var exists = await _context.PhanQuyens.AnyAsync(x => x.Id != id && x.TenQuyen.ToLower() == normalizedName.ToLower());
             if (exists)
             {
-                return Conflict(new { message = "Ten quyen da ton tai." });
+                return Conflict(new ProblemDetails
+                {
+                    Title = "Ten quyen da ton tai.",
+                    Status = StatusCodes.Status409Conflict
+                });
             }
 
             entity.TenQuyen = normalizedName;
             entity.MoTa = request.MoTa?.Trim();
 
             await _context.SaveChangesAsync();
-            return Ok(entity);
+
+            var updated = await _context.PhanQuyens
+                .Include(x => x.NguoiDungs)
+                .FirstAsync(x => x.Id == entity.Id);
+
+            return Ok(MapPhanQuyen(updated));
         }
 
         [HttpDelete("{id:int}")]
@@ -86,12 +112,28 @@ namespace backend.Controllers
             var isUsed = await _context.NguoiDungs.AnyAsync(x => x.MaQuyen == id);
             if (isUsed)
             {
-                return BadRequest(new { message = "Khong the xoa quyen dang duoc su dung." });
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Khong the xoa quyen.",
+                    Detail = "Quyen dang duoc gan cho nguoi dung.",
+                    Status = StatusCodes.Status400BadRequest
+                });
             }
 
             _context.PhanQuyens.Remove(entity);
             await _context.SaveChangesAsync();
             return NoContent();
+        }
+
+        private static PhanQuyenDto MapPhanQuyen(PhanQuyen item)
+        {
+            return new PhanQuyenDto
+            {
+                Id = item.Id,
+                TenQuyen = item.TenQuyen,
+                MoTa = item.MoTa,
+                SoNguoiDung = item.NguoiDungs.Count
+            };
         }
     }
 }

@@ -1,4 +1,5 @@
 using backend.Data;
+using backend.DTOs;
 using backend.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -17,36 +18,58 @@ namespace backend.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<HinhAnhSanPham>>> GetAll()
+        public async Task<ActionResult<IEnumerable<HinhAnhSanPhamAdminDto>>> GetAll([FromQuery] int? maSanPham)
         {
-            var items = await _context.HinhAnhSanPhams
-                .Include(x => x.SanPham)
-                .OrderBy(x => x.Id)
+            var query = BaseImageQuery();
+
+            if (maSanPham.HasValue)
+            {
+                query = query.Where(x => x.MaSanPham == maSanPham.Value);
+            }
+
+            var items = await query
+                .OrderBy(x => x.MaSanPham)
+                .ThenByDescending(x => x.IsMain)
+                .ThenBy(x => x.ThuTu)
                 .ToListAsync();
 
-            return Ok(items);
+            return Ok(items.Select(MapImage));
         }
 
         [HttpGet("{id:int}")]
-        public async Task<ActionResult<HinhAnhSanPham>> GetById(int id)
+        public async Task<ActionResult<HinhAnhSanPhamAdminDto>> GetById(int id)
         {
-            var item = await _context.HinhAnhSanPhams
-                .Include(x => x.SanPham)
-                .FirstOrDefaultAsync(x => x.Id == id);
-
-            return item is null ? NotFound() : Ok(item);
+            var item = await BaseImageQuery().FirstOrDefaultAsync(x => x.Id == id);
+            return item is null ? NotFound() : Ok(MapImage(item));
         }
 
         [HttpPost]
-        public async Task<ActionResult<HinhAnhSanPham>> Create([FromBody] HinhAnhSanPham request)
+        public async Task<ActionResult<HinhAnhSanPhamAdminDto>> Create([FromBody] HinhAnhSanPhamRequestDto request)
         {
-            var productExists = await _context.SanPhams.AnyAsync(x => x.Id == request.MaSanPham);
-            if (!productExists)
+            if (request.ThuTu < 0)
             {
-                return BadRequest(new { message = "Ma san pham khong hop le." });
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Thu tu anh khong hop le.",
+                    Detail = "Thu tu khong duoc am.",
+                    Status = StatusCodes.Status400BadRequest
+                });
             }
 
-            if (request.IsMain)
+            var product = await _context.SanPhams.FindAsync(request.MaSanPham);
+            if (product is null)
+            {
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Ma san pham khong hop le.",
+                    Status = StatusCodes.Status400BadRequest
+                });
+            }
+
+            var hasAnyImage = await _context.HinhAnhSanPhams.AnyAsync(x => x.MaSanPham == request.MaSanPham);
+            var shouldBeMain = request.IsMain || !hasAnyImage;
+
+            if (shouldBeMain)
             {
                 var currentMainImages = await _context.HinhAnhSanPhams
                     .Where(x => x.MaSanPham == request.MaSanPham && x.IsMain)
@@ -62,32 +85,62 @@ namespace backend.Controllers
             {
                 MaSanPham = request.MaSanPham,
                 ImageUrl = request.ImageUrl.Trim(),
-                IsMain = request.IsMain,
+                IsMain = shouldBeMain,
                 ThuTu = request.ThuTu
             };
 
             _context.HinhAnhSanPhams.Add(entity);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetById), new { id = entity.Id }, entity);
+            var created = await BaseImageQuery().FirstAsync(x => x.Id == entity.Id);
+            return CreatedAtAction(nameof(GetById), new { id = entity.Id }, MapImage(created));
         }
 
         [HttpPut("{id:int}")]
-        public async Task<ActionResult<HinhAnhSanPham>> Update(int id, [FromBody] HinhAnhSanPham request)
+        public async Task<ActionResult<HinhAnhSanPhamAdminDto>> Update(int id, [FromBody] HinhAnhSanPhamRequestDto request)
         {
+            if (request.ThuTu < 0)
+            {
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Thu tu anh khong hop le.",
+                    Detail = "Thu tu khong duoc am.",
+                    Status = StatusCodes.Status400BadRequest
+                });
+            }
+
             var entity = await _context.HinhAnhSanPhams.FindAsync(id);
             if (entity is null)
             {
                 return NotFound();
             }
 
-            var productExists = await _context.SanPhams.AnyAsync(x => x.Id == request.MaSanPham);
-            if (!productExists)
+            var oldProductId = entity.MaSanPham;
+            var oldWasMain = entity.IsMain;
+            var product = await _context.SanPhams.FindAsync(request.MaSanPham);
+            if (product is null)
             {
-                return BadRequest(new { message = "Ma san pham khong hop le." });
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Ma san pham khong hop le.",
+                    Status = StatusCodes.Status400BadRequest
+                });
             }
 
-            if (request.IsMain)
+            var shouldBeMain = request.IsMain;
+
+            if (!request.IsMain)
+            {
+                var hasAnotherMain = await _context.HinhAnhSanPhams.AnyAsync(x =>
+                    x.MaSanPham == request.MaSanPham && x.Id != id && x.IsMain);
+
+                if (!hasAnotherMain)
+                {
+                    shouldBeMain = true;
+                }
+            }
+
+            if (shouldBeMain)
             {
                 var currentMainImages = await _context.HinhAnhSanPhams
                     .Where(x => x.MaSanPham == request.MaSanPham && x.Id != id && x.IsMain)
@@ -101,11 +154,28 @@ namespace backend.Controllers
 
             entity.MaSanPham = request.MaSanPham;
             entity.ImageUrl = request.ImageUrl.Trim();
-            entity.IsMain = request.IsMain;
+            entity.IsMain = shouldBeMain;
             entity.ThuTu = request.ThuTu;
 
             await _context.SaveChangesAsync();
-            return Ok(entity);
+
+            if (oldProductId != request.MaSanPham && oldWasMain)
+            {
+                var replacement = await _context.HinhAnhSanPhams
+                    .Where(x => x.MaSanPham == oldProductId)
+                    .OrderBy(x => x.ThuTu)
+                    .ThenBy(x => x.Id)
+                    .FirstOrDefaultAsync();
+
+                if (replacement is not null && !replacement.IsMain)
+                {
+                    replacement.IsMain = true;
+                    await _context.SaveChangesAsync();
+                }
+            }
+
+            var updated = await BaseImageQuery().FirstAsync(x => x.Id == id);
+            return Ok(MapImage(updated));
         }
 
         [HttpDelete("{id:int}")]
@@ -117,9 +187,47 @@ namespace backend.Controllers
                 return NotFound();
             }
 
+            var productId = entity.MaSanPham;
+            var wasMain = entity.IsMain;
+
             _context.HinhAnhSanPhams.Remove(entity);
             await _context.SaveChangesAsync();
+
+            if (wasMain)
+            {
+                var replacement = await _context.HinhAnhSanPhams
+                    .Where(x => x.MaSanPham == productId)
+                    .OrderBy(x => x.ThuTu)
+                    .ThenBy(x => x.Id)
+                    .FirstOrDefaultAsync();
+
+                if (replacement is not null)
+                {
+                    replacement.IsMain = true;
+                    await _context.SaveChangesAsync();
+                }
+            }
+
             return NoContent();
+        }
+
+        private IQueryable<HinhAnhSanPham> BaseImageQuery()
+        {
+            return _context.HinhAnhSanPhams
+                .Include(x => x.SanPham);
+        }
+
+        private static HinhAnhSanPhamAdminDto MapImage(HinhAnhSanPham item)
+        {
+            return new HinhAnhSanPhamAdminDto
+            {
+                Id = item.Id,
+                MaSanPham = item.MaSanPham,
+                TenSanPham = item.SanPham?.TenSanPham ?? string.Empty,
+                ImageUrl = item.ImageUrl,
+                IsMain = item.IsMain,
+                ThuTu = item.ThuTu
+            };
         }
     }
 }
