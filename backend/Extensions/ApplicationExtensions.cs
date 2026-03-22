@@ -5,7 +5,6 @@ namespace backend.Extensions
     {
         public static IServiceCollection AddCoreApplicationServices(this IServiceCollection services)
         {
-            services.AddControllers();
             services.AddAutoMapper(cfg => { }, typeof(MappingProfile));
             services.AddCors(options =>
             {
