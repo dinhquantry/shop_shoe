@@ -18,33 +18,39 @@ namespace backend.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<DanhMuc>>> GetAll()
+        public async Task<ActionResult<IEnumerable<DanhMucDto>>> GetAll()
         {
             var items = await _context.DanhMucs
+                .Include(x => x.SanPhams)
                 .OrderBy(x => x.Id)
                 .ToListAsync();
 
-            return Ok(items);
+            return Ok(items.Select(MapDanhMuc));
         }
 
-        [HttpGet("{id}")]
-        public async Task<ActionResult<DanhMuc>> GetById(int id)
+        [HttpGet("{id:int}")]
+        public async Task<ActionResult<DanhMucDto>> GetById(int id)
         {
-            var item = await _context.DanhMucs.FindAsync(id);
-            return item is null ? NotFound() : Ok(item);
+            var item = await _context.DanhMucs
+                .Include(x => x.SanPhams)
+                .FirstOrDefaultAsync(x => x.Id == id);
+
+            return item is null ? NotFound() : Ok(MapDanhMuc(item));
         }
 
         [HttpPost]
-        public async Task<ActionResult<DanhMuc>> Create([FromBody] DanhMucRequestDto request)
+        public async Task<ActionResult<DanhMucDto>> Create([FromBody] DanhMucRequestDto request)
         {
             var normalizedName = request.TenDanhMuc.Trim();
-
-            var exists = await _context.DanhMucs
-                .AnyAsync(x => x.TenDanhMuc.ToLower() == normalizedName.ToLower());
+            var exists = await _context.DanhMucs.AnyAsync(x => x.TenDanhMuc.ToLower() == normalizedName.ToLower());
 
             if (exists)
             {
-                return Conflict(new { message = "Ten danh muc da ton tai." });
+                return Conflict(new ProblemDetails
+                {
+                    Title = "Ten danh muc da ton tai.",
+                    Status = StatusCodes.Status409Conflict
+                });
             }
 
             var entity = new DanhMuc
@@ -57,11 +63,15 @@ namespace backend.Controllers
             _context.DanhMucs.Add(entity);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetById), new { id = entity.Id }, entity);
+            var created = await _context.DanhMucs
+                .Include(x => x.SanPhams)
+                .FirstAsync(x => x.Id == entity.Id);
+
+            return CreatedAtAction(nameof(GetById), new { id = entity.Id }, MapDanhMuc(created));
         }
 
-        [HttpPut("{id}")]
-        public async Task<ActionResult<DanhMuc>> Update(int id, [FromBody] DanhMucRequestDto request)
+        [HttpPut("{id:int}")]
+        public async Task<ActionResult<DanhMucDto>> Update(int id, [FromBody] DanhMucRequestDto request)
         {
             var entity = await _context.DanhMucs.FindAsync(id);
             if (entity is null)
@@ -70,12 +80,15 @@ namespace backend.Controllers
             }
 
             var normalizedName = request.TenDanhMuc.Trim();
-            var exists = await _context.DanhMucs
-                .AnyAsync(x => x.Id != id && x.TenDanhMuc.ToLower() == normalizedName.ToLower());
+            var exists = await _context.DanhMucs.AnyAsync(x => x.Id != id && x.TenDanhMuc.ToLower() == normalizedName.ToLower());
 
             if (exists)
             {
-                return Conflict(new { message = "Tên danh mục đã tồn tại." });
+                return Conflict(new ProblemDetails
+                {
+                    Title = "Ten danh muc da ton tai.",
+                    Status = StatusCodes.Status409Conflict
+                });
             }
 
             entity.TenDanhMuc = normalizedName;
@@ -83,10 +96,15 @@ namespace backend.Controllers
             entity.TrangThai = request.TrangThai;
 
             await _context.SaveChangesAsync();
-            return Ok(entity);
+
+            var updated = await _context.DanhMucs
+                .Include(x => x.SanPhams)
+                .FirstAsync(x => x.Id == entity.Id);
+
+            return Ok(MapDanhMuc(updated));
         }
 
-        [HttpDelete("{id}")]
+        [HttpDelete("{id:int}")]
         public async Task<IActionResult> Delete(int id)
         {
             var entity = await _context.DanhMucs.FindAsync(id);
@@ -98,12 +116,29 @@ namespace backend.Controllers
             var hasProducts = await _context.SanPhams.AnyAsync(x => x.MaDanhMuc == id);
             if (hasProducts)
             {
-                return BadRequest(new { message = "Không thể xóa danh mục này." });
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Khong the xoa danh muc.",
+                    Detail = "Danh muc dang duoc su dung boi san pham.",
+                    Status = StatusCodes.Status400BadRequest
+                });
             }
 
             _context.DanhMucs.Remove(entity);
             await _context.SaveChangesAsync();
             return NoContent();
+        }
+
+        private static DanhMucDto MapDanhMuc(DanhMuc item)
+        {
+            return new DanhMucDto
+            {
+                Id = item.Id,
+                TenDanhMuc = item.TenDanhMuc,
+                MoTa = item.MoTa,
+                TrangThai = item.TrangThai,
+                SoSanPham = item.SanPhams.Count
+            };
         }
     }
 }

@@ -12,4 +12,12 @@ namespace backend.DTOs
         [RegularExpression("^#([0-9A-Fa-f]{6})$", ErrorMessage = "MaHex phai theo dinh dang #RRGGBB.")]
         public string? MaHex { get; set; }
     }
+
+    public class MauSacDto
+    {
+        public int Id { get; set; }
+        public string TenMau { get; set; } = string.Empty;
+        public string? MaHex { get; set; }
+        public int SoBienThe { get; set; }
+    }
 }
